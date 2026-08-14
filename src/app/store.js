@@ -79,10 +79,18 @@ export const usePlanner = () => {
   const [entries, setEntries] = usePersisted("planner:entries", []);
   // Defaults the user explicitly turned off. They stay visible, marked off.
   const [disabled, setDisabled] = usePersisted("planner:disabled", []);
+  // The user's own groupings. Empty until they make one.
+  const [categories, setCategories] = usePersisted("planner:categories", []);
+
+  // Defaults are product, not user data, so their category lives separately.
+  const [defaultCats, setDefaultCats] = usePersisted("planner:defaultCats", {});
 
   const allTasks = useMemo(
-    () => [...buildDefaults(new Set(disabled)), ...userTasks],
-    [disabled, userTasks],
+    () => [
+      ...buildDefaults(new Set(disabled)).map((t) => ({ ...t, categoryId: defaultCats[t.id] ?? null })),
+      ...userTasks,
+    ],
+    [disabled, userTasks, defaultCats],
   );
 
   const day = useCallback((jdn) => dayFromJdn(jdn), []);
@@ -156,11 +164,57 @@ export const usePlanner = () => {
 
   const findTask = useCallback((id) => allTasks.find((t) => t.id === id) ?? null, [allTasks]);
 
+  // ── Categories: authored groupings, unlike patterns which are observed ──
+
+  const addCategory = useCallback(
+    ({ name, color }) => {
+      const c = { id: `c${Date.now().toString(36)}${(seq++).toString(36)}`, name, color };
+      setCategories((cs) => [...cs, c]);
+      return c;
+    },
+    [setCategories],
+  );
+
+  const updateCategory = useCallback(
+    (id, patch) => setCategories((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c))),
+    [setCategories],
+  );
+
+  /** Deleting a category never deletes its tasks — they just come loose. */
+  const removeCategory = useCallback(
+    (id) => {
+      setCategories((cs) => cs.filter((c) => c.id !== id));
+      setUserTasks((ts) => ts.map((t) => (t.categoryId === id ? { ...t, categoryId: null } : t)));
+      setDefaultCats((m) => {
+        const next = { ...m };
+        for (const k of Object.keys(next)) if (next[k] === id) delete next[k];
+        return next;
+      });
+    },
+    [setCategories, setUserTasks, setDefaultCats],
+  );
+
+  const setCategory = useCallback(
+    (taskId, categoryId) => {
+      if (String(taskId).startsWith("default:")) {
+        setDefaultCats((m) => ({ ...m, [taskId]: categoryId }));
+      } else {
+        setUserTasks((ts) => ts.map((t) => (t.id === taskId ? { ...t, categoryId } : t)));
+      }
+    },
+    [setUserTasks, setDefaultCats],
+  );
+
   return {
     allTasks,
     userTasks,
     entries,
     disabled,
+    categories,
+    addCategory,
+    updateCategory,
+    removeCategory,
+    setCategory,
     day,
     tasksFor,
     timelineFor,

@@ -14,7 +14,9 @@
 
 import { useEffect, useRef } from "react";
 import Icon from "./Icon.jsx";
-import { fmtTime, fmtDur, GAP_KINDS, STATUS } from "../log.mjs";
+import Mark from "./Mark.jsx";
+import { t12, h12 } from "./format.js";
+import { fmtDur, GAP_KINDS, STATUS } from "../log.mjs";
 
 const HOURS = Array.from({ length: 25 }, (_, i) => i);
 
@@ -56,7 +58,10 @@ export default function Timeline({
               className={`tl-hour${h % 6 === 0 ? " major" : ""}`}
               style={{ top: h * 60 * pxPerMin }}
             >
-              <div className="lab">{h === 24 ? "24:00" : `${String(h).padStart(2, "0")}:00`}</div>
+              <div className="lab">
+                <span>{h === 24 ? 12 : h12(h)}</span>
+                <Mark pm={h >= 12 && h < 24} size={5} />
+              </div>
               <div className="rule" />
             </div>
           ))}
@@ -141,7 +146,7 @@ export default function Timeline({
                     {st === STATUS.RESCHEDULED ? <Icon name="repeat" size={13} /> : null}
                     <span className="ev-title">{t.title}</span>
                     <span className="ev-meta">
-                      {fmtTime(item.startMin)}
+                      {t12(item.startMin)}
                       {tiny ? "" : ` · ${fmtDur(t.duration ?? 0)}`}
                     </span>
                   </div>
@@ -149,7 +154,7 @@ export default function Timeline({
                     <div className="ev-sub">
                       {t.place ? `${t.place}` : "No place set"}
                       {entry?.actualMin != null && entry.actualMin !== item.startMin
-                        ? ` · actually ${fmtTime(entry.actualMin)}`
+                        ? ` · actually ${t12(entry.actualMin)}`
                         : ""}
                     </div>
                   ) : null}
