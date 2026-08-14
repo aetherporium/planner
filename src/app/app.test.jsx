@@ -6,6 +6,9 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, within, fireEvent } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+
+const CSS = readFileSync("src/app/styles.css", "utf8");
 import App from "./App.jsx";
 import { parseHash } from "./hooks.js";
 import { readNow, ruleIdOf, ruleById } from "./store.js";
@@ -196,7 +199,9 @@ describe("product rules hold in the UI", () => {
   it("renders the clock in analog and digital form at once", () => {
     const { container } = at("#/");
     expect(container.querySelector("svg.face")).toBeTruthy();
-    expect(container.querySelector(".dh-digital").textContent).toMatch(/^\d{1,2}:\d{2}:\d{2}$/);
+    // digits live inside the dial, on an arc
+    expect(container.querySelector("svg.face .face-digits textPath").textContent)
+      .toMatch(/^\d{1,2}:\d{2}$/);
   });
 
   it("has no floating clock pill and no quick-add on the day", () => {
@@ -232,37 +237,44 @@ describe("product rules hold in the UI", () => {
     expect(container.querySelector(".dayhead .chips")).toBeNull();
   });
 
-  it("puts a large numbered analog clock at the top left, on no card", () => {
+  it("is a circle with numbers and no bounding box", () => {
     const { container } = at("#/");
     const head = container.querySelector("header.dh");
-    // First thing in the header, and much larger than before.
     const face = head.firstElementChild;
     expect(face.tagName).toBe("svg");
-    expect(Number(face.getAttribute("width"))).toBeGreaterThanOrEqual(130);
-    // It has real numbers on it.
-    const nums = [...face.querySelectorAll("text")].map((t) => t.textContent);
+    // Real numbers on the dial.
+    const nums = [...face.querySelectorAll("text")]
+      .map((t) => t.textContent)
+      .filter((t) => /^\d+$/.test(t));
     expect(nums).toHaveLength(12);
     expect(nums).toContain("12");
-    expect(nums).toContain("6");
-    // No card: the header is not a glass panel.
+    // A circle, not a square: no rect, and the only outline is a circle.
+    expect(face.querySelector("rect")).toBeNull();
+    expect(face.querySelector("circle")).toBeTruthy();
+    // No card around it either.
     expect(head.classList.contains("glass")).toBe(false);
-    expect(head.classList.contains("panel")).toBe(false);
   });
 
-  it("keeps the digital time small beside the big face", () => {
+  it("puts the digits on an arc inside the dial, not beside it", () => {
     const { container } = at("#/");
-    const face = Number(container.querySelector("svg.face").getAttribute("width"));
-    const digital = container.querySelector(".dh-digital");
-    expect(digital).toBeTruthy();
-    // It is a chip in the title line, not a second headline.
-    expect(digital.parentElement.classList.contains("dh-line")).toBe(true);
-    expect(face).toBeGreaterThan(100);
+    const face = container.querySelector("svg.face");
+    const arced = face.querySelector(".face-digits textPath");
+    expect(arced).toBeTruthy();
+    expect(arced.getAttribute("href")).toBe("#arc-digits");
+    // The old chip outside the clock is gone.
+    expect(container.querySelector(".dh-digital")).toBeNull();
   });
 
-  it("shows the day/night mark next to the digital time", () => {
+  it("keeps the clock modest in size", () => {
     const { container } = at("#/");
-    const mark = container.querySelector('.dh-digital [role="img"]');
-    expect(mark).toBeTruthy();
+    const w = Number(container.querySelector("svg.face").getAttribute("width"));
+    expect(w).toBeGreaterThan(100);
+    expect(w).toBeLessThanOrEqual(120);
+  });
+
+  it("shows the day/night mark in the header", () => {
+    const { container } = at("#/");
+    const mark = container.querySelector('.dh-line [role="img"]');
     expect(["day", "night"]).toContain(mark.getAttribute("aria-label"));
   });
 });
@@ -270,12 +282,36 @@ describe("product rules hold in the UI", () => {
 describe("the 24-hour timeline", () => {
   const px = 1.15;
 
-  it("covers a full 24 hours and scrolls", () => {
+  it("covers a full 24 hours per day and scrolls vertically only", () => {
     const { container } = at("#/");
-    const canvas = container.querySelector(".tl-canvas");
-    expect(canvas.style.height).toBe(`${1440 * px}px`);
-    expect(container.querySelectorAll(".tl-hour").length).toBe(25);
-    expect(container.querySelector(".tl-scroll").style.height).toBeTruthy();
+    const cur = container.querySelector(".tl-day.current");
+    expect(cur.style.height).toBe(`${1440 * px}px`);
+    expect(cur.querySelectorAll(".tl-hour").length).toBe(25);
+    const sc = container.querySelector(".tl-scroll");
+    expect(sc.style.height).toBeTruthy();
+    // No sideways scrolling.
+    expect(CSS).toMatch(/\.tl-scroll \{[^}]*overflow-x: hidden/);
+  });
+
+  it("holds yesterday, today and tomorrow in one timeline", () => {
+    const jdn = readNow().jdn;
+    const { container } = at("#/");
+    const days = container.querySelectorAll(".tl-day");
+    expect(days).toHaveLength(3);
+    expect(container.querySelectorAll(".tl-day.current")).toHaveLength(1);
+    expect(container.querySelectorAll(".tl-day.neighbour")).toHaveLength(2);
+    // Dividers link to the neighbouring days.
+    const divs = [...container.querySelectorAll("a.tl-div")].map((a) => a.getAttribute("href"));
+    expect(divs).toContain(`#/day/${jdn + 1}`);
+  });
+
+  it("points the next-day arrow downward", () => {
+    const { container } = at("#/");
+    const next = container.querySelector("a.tl-div-next");
+    // It uses the arrowDown glyph, not a rotated up arrow.
+    expect(next.querySelector("svg").getAttribute("style") ?? "").not.toMatch(/rotate/);
+    const d = next.querySelector("svg path").getAttribute("d");
+    expect(d).toBe("M10 4v12m0 0 5-5m-5 5-5-5");
   });
 
   it("gives every entry a height equal to its duration", () => {
@@ -300,13 +336,23 @@ describe("the 24-hour timeline", () => {
     expect(top("Lunch")).toBeCloseTo((6 * 60 + 30) * px, 1);     // 12:30 = 6.5h in
   });
 
-  it("fills with water up to the current minute", () => {
+  it("fills with water to the hour, and does not animate", () => {
     const { container } = at("#/");
     const water = container.querySelector(".water");
     expect(water).toBeTruthy();
-    expect(parseFloat(water.style.height)).toBeCloseTo(fromDawn(readNow().minutes) * px, 0);
-    // It has a moving surface, which is what makes it read as water.
-    expect(water.querySelector(".water-surface svg path")).toBeTruthy();
+    // Stepped to the hour, because the hour is the finest unit on this ruler.
+    const stepped = Math.floor(fromDawn(readNow().minutes) / 60) * 60;
+    expect(parseFloat(water.style.height)).toBeCloseTo(stepped * px, 0);
+    // No moving surface any more — a level, not a motion.
+    expect(water.querySelector(".water-surface")).toBeNull();
+    expect(water.querySelector(".water-line")).toBeTruthy();
+  });
+
+  it("only the second hand moves continuously", () => {
+    expect(CSS).not.toMatch(/@keyframes drift/);
+    expect(CSS).not.toMatch(/\.water-body \{[^}]*animation/);
+    // The clock's second hand is the only continuous motion.
+    expect(CSS).toMatch(/@keyframes slide-in/);
   });
 
   it("water never blocks what it covers", () => {
@@ -350,7 +396,7 @@ describe("blueprint wiring", () => {
 
   it("shows only patterns that exist, most frequent first", () => {
     const { container } = at("#/blueprints");
-    const pats = [...container.querySelectorAll(".pat")];
+    const pats = [...container.querySelectorAll(".sq")].filter((c) => c.querySelector(".sq-i"));
     // The five defaults are all daily, so exactly one pattern exists.
     expect(pats).toHaveLength(1);
     expect(pats[0].textContent).toMatch(/Daily/);
@@ -361,23 +407,41 @@ describe("blueprint wiring", () => {
 
   it("never writes 'every' on a pattern", () => {
     const { container } = at("#/blueprints");
-    for (const p of container.querySelectorAll(".pat")) {
+    for (const p of container.querySelectorAll(".sq")) {
       expect(p.textContent).not.toMatch(/every/i);
     }
   });
 
-  it("opens the first pattern and lists its tasks", () => {
+  it("opens a pattern as a popup, not a page", () => {
     const { container } = at("#/blueprints");
-    expect(container.querySelector(".pat.on")).toBeTruthy();
+    // Nothing is open until you ask.
+    expect(document.querySelector(".pop")).toBeNull();
+    fireEvent.click(container.querySelector(".sq"));
+    const pop = document.querySelector(".pop");
+    expect(pop.getAttribute("role")).toBe("dialog");
+    expect(pop.textContent).toMatch(/Daily/);
     for (const t of ["Wake", "Breakfast", "Lunch", "Dinner", "Sleep"]) {
-      expect(screen.getByText(t)).toBeTruthy();
+      expect(within(pop).getByText(t)).toBeTruthy();
     }
+    // The page behind it did not change.
+    expect(window.location.hash).toBe("#/blueprints");
+    expect(container.querySelector(".bp-hero")).toBeTruthy();
   });
 
-  it("offers categories as a separate, authored grouping", () => {
+  it("closes a popup with escape, and that is not history", () => {
     const { container } = at("#/blueprints");
-    expect(container.textContent).toMatch(/Categories/);
-    expect(container.textContent).toMatch(/No categories yet/);
+    fireEvent.click(container.querySelector(".sq"));
+    expect(document.querySelector(".pop")).toBeTruthy();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(document.querySelector(".pop")).toBeNull();
+    expect(window.location.hash).toBe("#/blueprints");
+  });
+
+  it("leads with adding a task", () => {
+    const { container } = at("#/blueprints");
+    const add = container.querySelector("a.bp-add");
+    expect(add.getAttribute("href")).toMatch(/\/add$/);
+    expect(add.textContent).toMatch(/New task/);
   });
 });
 
@@ -451,19 +515,18 @@ describe("the Ethiopian clock — the day begins at dawn", () => {
 
   it("shows the clock in Ethiopian form with a mark", () => {
     const { container } = at("#/");
-    const digits = container.querySelector(".dh-digital");
-    expect(digits.textContent).toMatch(/^\d{1,2}:\d{2}:\d{2}$/);
-    expect(digits.querySelector('[role="img"]')).toBeTruthy();
+    expect(container.querySelector(".face-digits textPath").textContent).toMatch(/^\d{1,2}:\d{2}$/);
+    expect(container.querySelector('.dh-line [role="img"]')).toBeTruthy();
   });
 
   it("fits sleep inside the day instead of overflowing it", () => {
     const { container } = at("#/");
-    const sleep = [...container.querySelectorAll("a.ev")].find((e) =>
+    const sleep = [...container.querySelectorAll(".tl-day.current a.ev")].find((e) =>
       /Sleep/.test(e.textContent),
     );
     const top = parseFloat(sleep.style.top);
     const height = parseFloat(sleep.style.height);
-    const canvas = parseFloat(container.querySelector(".tl-canvas").style.height);
+    const canvas = parseFloat(container.querySelector(".tl-day.current").style.height);
     // 22:30 is 16.5h after dawn; +450min lands exactly on the end of the day.
     expect(top).toBeCloseTo(16.5 * 60 * 1.15, 0);
     expect(top + height).toBeLessThanOrEqual(canvas + 1);
@@ -474,40 +537,32 @@ describe("categories", () => {
   it("a user can create one, colour it, and see their tasks in it", () => {
     const { container } = at("#/blueprints");
 
+    fireEvent.click(container.querySelector(".sq-new"));
+    fireEvent.change(document.querySelector("#cn"), { target: { value: "School" } });
+    fireEvent.click(document.querySelectorAll(".pop .swatches .swatch")[2]);
     fireEvent.click(
-      [...container.querySelectorAll("button")].find((b) => /New category/.test(b.textContent)),
-    );
-    fireEvent.change(container.querySelector("#cn"), { target: { value: "School" } });
-    // Pick a colour other than the default.
-    fireEvent.click(container.querySelectorAll(".swatches .swatch")[2]);
-    fireEvent.click(
-      [...container.querySelectorAll("button")].find((b) => /Create/.test(b.textContent)),
+      [...document.querySelectorAll(".pop button")].find((b) => /Create/.test(b.textContent)),
     );
 
-    const cat = container.querySelector(".cat");
+    // The popup closed and a square appeared.
+    expect(document.querySelector(".pop")).toBeNull();
+    const cat = container.querySelector(".sq-cat");
     expect(cat.textContent).toMatch(/School/);
     expect(cat.style.getPropertyValue("--h")).toBe("268"); // violet
     expect(JSON.parse(localStorage.getItem("planner:categories"))[0].name).toBe("School");
 
-    // Collapsed by default; expanding happens in place, not on a new page.
-    expect(cat.querySelector(".sched")).toBeNull();
-    expect(cat.classList.contains("open")).toBe(false);
-    fireEvent.click(cat.querySelector(".cat-toggle"));
-    const after = container.querySelector(".cat");
-    expect(after.classList.contains("open")).toBe(true);
-    expect(after.textContent).toMatch(/Nothing here yet/);
-    // Still the same page — no navigation happened.
+    // Opening it is a popup, not a page.
+    fireEvent.click(cat);
+    expect(document.querySelector(".pop").textContent).toMatch(/Nothing here yet/);
     expect(window.location.hash).toBe("#/blueprints");
   });
 
   it("deleting a category releases its tasks instead of deleting them", () => {
     const { container } = at("#/blueprints");
+    fireEvent.click(container.querySelector(".sq-new"));
+    fireEvent.change(document.querySelector("#cn"), { target: { value: "Home" } });
     fireEvent.click(
-      [...container.querySelectorAll("button")].find((b) => /New category/.test(b.textContent)),
-    );
-    fireEvent.change(container.querySelector("#cn"), { target: { value: "Home" } });
-    fireEvent.click(
-      [...container.querySelectorAll("button")].find((b) => /Create/.test(b.textContent)),
+      [...document.querySelectorAll(".pop button")].find((b) => /Create/.test(b.textContent)),
     );
     cleanup();
 
@@ -521,14 +576,17 @@ describe("categories", () => {
     cleanup();
 
     const bp = at("#/blueprints");
-    fireEvent.click(bp.container.querySelector(".cat-toggle"));
-    expect(bp.container.querySelector(".cat").textContent).toMatch(/Lunch/);
-    fireEvent.click(bp.container.querySelector('[aria-label="Delete Home"]'));
+    fireEvent.click(bp.container.querySelector(".sq-cat"));
+    const pop = document.querySelector(".pop");
+    expect(pop.textContent).toMatch(/Lunch/);
+    fireEvent.click([...pop.querySelectorAll("button")].find((b) => /Delete/.test(b.textContent)));
 
-    // The category is gone; Lunch is not.
-    expect(bp.container.querySelector(".cat")).toBeNull();
-    expect(bp.container.textContent).toMatch(/Lunch/);
+    // The category square is gone; the task is not.
+    expect(bp.container.querySelector(".sq-cat")).toBeNull();
     expect(JSON.parse(localStorage.getItem("planner:categories"))).toEqual([]);
+    cleanup();
+    // Lunch still exists on the day.
+    expect(at("#/").container.textContent).toMatch(/Lunch/);
   });
 
   it("starts with none — nothing is invented", () => {
@@ -575,17 +633,17 @@ describe("every page is reachable", () => {
     }
   });
 
-  it("puts the neighbouring days above and below the day", () => {
+  it("keeps the neighbouring days inside the same timeline", () => {
     const jdn = readNow().jdn;
     const { container } = at("#/");
-    const prev = container.querySelector(".adj-prev");
-    const next = container.querySelector(".adj-next");
-    expect(prev.getAttribute("href")).toBe(`#/day/${jdn - 1}`);
-    expect(next.getAttribute("href")).toBe(`#/day/${jdn + 1}`);
-    // Above the timeline and below it, in that order.
-    const kids = [...container.querySelector(".day-page").children];
-    expect(kids.indexOf(prev)).toBeLessThan(kids.findIndex((k) => k.classList.contains("tl-wrap")));
-    expect(kids.indexOf(next)).toBeGreaterThan(kids.findIndex((k) => k.classList.contains("tl-wrap")));
+    // Not separate rails outside the scroller any more.
+    expect(container.querySelector(".adj")).toBeNull();
+    const days = [...container.querySelectorAll(".tl-day")];
+    expect(days).toHaveLength(3);
+    // All three live inside the one scroller.
+    for (const d of days) expect(d.closest(".tl-scroll")).toBeTruthy();
+    expect([...container.querySelectorAll("a.tl-div")].map((a) => a.getAttribute("href")))
+      .toContain(`#/day/${jdn + 1}`);
   });
 
   it("reaches the add page and the task page from the day", () => {
@@ -600,25 +658,19 @@ describe("every page is reachable", () => {
 describe("blueprints do not look like the day page", () => {
   it("uses a schedule strip, not a timeline", () => {
     const { container } = at("#/blueprints");
-    // No 24-hour canvas, no hour ruler, no now-marker.
-    expect(container.querySelector(".tl-canvas")).toBeNull();
-    expect(container.querySelector(".tl-hour")).toBeNull();
-    expect(container.querySelector(".tl-nowdot")).toBeNull();
-    // Its own vocabulary instead.
-    expect(container.querySelectorAll(".sched .slot").length).toBe(5);
-  });
-
-  it("expands a pattern in place rather than navigating", () => {
-    const { container } = at("#/blueprints");
-    expect(container.querySelector(".pat-open")).toBeTruthy();
-    fireEvent.click(container.querySelector(".pat"));
-    expect(container.querySelector(".pat-open")).toBeNull();
-    expect(window.location.hash).toBe("#/blueprints");
+    fireEvent.click(container.querySelector(".sq"));
+    const pop = document.querySelector(".pop");
+    // No 24-hour canvas, no hour ruler, no water.
+    expect(pop.querySelector(".tl-day")).toBeNull();
+    expect(pop.querySelector(".tl-hour")).toBeNull();
+    expect(pop.querySelector(".water")).toBeNull();
+    expect(pop.querySelectorAll(".sched .slot").length).toBe(5);
   });
 
   it("sizes each slot bar by duration", () => {
     const { container } = at("#/blueprints");
-    const bars = [...container.querySelectorAll(".slot")]
+    fireEvent.click(container.querySelector(".sq"));
+    const bars = [...document.querySelectorAll(".pop .slot")]
       .filter((s) => s.querySelector(".slot-bar"))
       .map((s) => ({
         name: s.querySelector(".slot-n").textContent,
@@ -633,7 +685,8 @@ describe("blueprints do not look like the day page", () => {
 
   it("orders a blueprint from dawn, so wake comes first", () => {
     const { container } = at("#/blueprints");
-    const names = [...container.querySelectorAll(".slot-n")].map((n) => n.textContent);
+    fireEvent.click(container.querySelector(".sq"));
+    const names = [...document.querySelectorAll(".pop .slot-n")].map((n) => n.textContent);
     expect(names).toEqual(["Wake", "Breakfast", "Lunch", "Dinner", "Sleep"]);
   });
 });
@@ -652,14 +705,14 @@ describe("moments are lines, not blocks", () => {
 
   it("gives it no block among the timed entries", () => {
     const { container } = at("#/");
-    const titles = [...container.querySelectorAll("a.ev .ev-title")].map((t) => t.textContent);
+    const titles = [...container.querySelectorAll(".tl-day.current a.ev .ev-title")].map((t) => t.textContent);
     expect(titles).toEqual(["Breakfast", "Lunch", "Dinner", "Sleep"]);
     expect(titles).not.toContain("Wake");
   });
 
   it("sits exactly on its minute — dawn", () => {
     const { container } = at("#/");
-    expect(parseFloat(container.querySelector("a.mo").style.top)).toBeCloseTo(0, 1);
+    expect(parseFloat(container.querySelector(".tl-day.current a.mo").style.top)).toBeCloseTo(0, 1);
   });
 
   it("is still a link to its own page", () => {
@@ -669,11 +722,94 @@ describe("moments are lines, not blocks", () => {
 
   it("shows no duration for it on the blueprint either", () => {
     const { container } = at("#/blueprints");
-    const wake = [...container.querySelectorAll(".slot")].find((s) =>
+    fireEvent.click(container.querySelector(".sq"));
+    const wake = [...document.querySelectorAll(".pop .slot")].find((s) =>
       /Wake/.test(s.querySelector(".slot-n").textContent),
     );
     expect(wake.querySelector(".slot-d").textContent).toBe("moment");
     expect(wake.querySelector(".slot-moment")).toBeTruthy();
     expect(wake.querySelector(".slot-bar")).toBeNull();
+  });
+});
+
+describe("the now strip — recent, current, next", () => {
+  it("appears on today", () => {
+    const { container } = at("#/");
+    expect(container.querySelector(".ns")).toBeTruthy();
+  });
+
+  it("does not appear on another day, which has no 'now'", () => {
+    const { container } = at(`#/day/${readNow().jdn + 2}`);
+    expect(container.querySelector(".ns")).toBeNull();
+  });
+
+  it("gives weight to exactly one thing — the current task", () => {
+    const { container } = at("#/");
+    const now = container.querySelectorAll(".ns-now, .ns-open");
+    expect(now).toHaveLength(1);
+  });
+
+  it("shows a bounded number of past and future rows", () => {
+    const { container } = at("#/");
+    expect(container.querySelectorAll(".ns-past").length).toBeLessThanOrEqual(2);
+    expect(container.querySelectorAll(".ns-next").length).toBeLessThanOrEqual(3);
+  });
+
+  it("keeps past rows neutral — no failure language, no strike-through", () => {
+    const { container } = at("#/");
+    const ns = container.querySelector(".ns");
+    expect(ns.textContent).not.toMatch(/missed|late|failed|overdue/i);
+  });
+
+  it("every row is a link to its task", () => {
+    const { container } = at("#/");
+    for (const r of container.querySelectorAll("a.ns-row")) {
+      expect(r.getAttribute("href")).toMatch(/^#\/task\//);
+    }
+  });
+
+  it("says so plainly when nothing is scheduled", () => {
+    const { container } = at("#/");
+    const open = container.querySelector(".ns-open");
+    if (open) expect(open.textContent).toMatch(/Nothing scheduled right now/);
+  });
+});
+
+describe("view kinds", () => {
+  it("only full views change the hash", () => {
+    const { container } = at("#/blueprints");
+    const before = window.location.hash;
+    fireEvent.click(container.querySelector(".sq"));      // popup
+    expect(window.location.hash).toBe(before);
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.click(container.querySelector("button.go")); // half
+    expect(window.location.hash).toBe(before);
+  });
+
+  it("a popup traps its own dismissal, not the page's history", () => {
+    const { container } = at("#/blueprints");
+    fireEvent.click(container.querySelector(".sq"));
+    const pop = document.querySelector(".pop");
+    expect(pop.getAttribute("aria-modal")).toBe("true");
+    fireEvent.click(document.querySelector(".pop-x"));
+    expect(document.querySelector(".pop")).toBeNull();
+  });
+
+  it("navigating closes anything open on top", () => {
+    const { container } = at("#/blueprints");
+    fireEvent.click(container.querySelector(".sq"));
+    expect(document.querySelector(".pop")).toBeTruthy();
+    window.location.hash = "#/";
+    fireEvent(window, new HashChangeEvent("hashchange"));
+    expect(document.querySelector(".pop")).toBeNull();
+  });
+
+  it("the new-category square matches the category squares in shape", () => {
+    const { container } = at("#/blueprints");
+    const mk = container.querySelector(".sq-new");
+    expect(mk.classList.contains("sq")).toBe(true);
+    // Marked as the one that creates, not just another card.
+    expect(mk.querySelector(".sq-plus")).toBeTruthy();
+    expect(mk.textContent).toMatch(/New category/);
   });
 });

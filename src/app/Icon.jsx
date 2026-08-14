@@ -38,6 +38,7 @@ const P = {
   chevDown: "M5 8l5 5 5-5",
   arrowLeft: "M16 10H4m0 0 5-5m-5 5 5 5",
   arrowUp: "M10 16V4m0 0-5 5m5-5 5 5",
+  arrowDown: "M10 4v12m0 0 5-5m-5 5-5-5",
 
   // place and the space between places
   pin: "M10 17.5s5.5-5 5.5-9a5.5 5.5 0 1 0-11 0c0 4 5.5 9 5.5 9ZM10 10.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",

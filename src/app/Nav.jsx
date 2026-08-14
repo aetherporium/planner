@@ -175,20 +175,3 @@ export default function Nav({ now, tasks, categories }) {
     </>
   );
 }
-
-/** Adjacency rail — the neighbouring day, reachable without opening anything. */
-export function Adjacent({ jdn, dir }) {
-  const d = dayFromJdn(jdn);
-  return (
-    <a className={`adj adj-${dir}`} href={`#/day/${jdn}`}>
-      <Icon name={dir === "prev" ? "chevLeft" : "chevRight"} size={14}
-        style={{ transform: "rotate(90deg)" }} />
-      <span className="adj-name">{DOW[d.dow]}</span>
-      <span className="adj-date">
-        {d.gc.d} {GC_MONTHS[d.gc.m - 1].slice(0, 3)}
-        <span className="am adj-ec"> · {EC_M_AM[d.ec.m - 1]} {d.ec.d}</span>
-      </span>
-      <span className="adj-hint">{dir === "prev" ? "previous day" : "next day"}</span>
-    </a>
-  );
-}

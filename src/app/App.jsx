@@ -12,8 +12,10 @@ import Icon from "./Icon.jsx";
 import Timeline from "./Timeline.jsx";
 import Mark, { Time } from "./Mark.jsx";
 import { t12, parts, parseEth, isNight, fromDawn } from "./format.js";
-import Nav, { Adjacent } from "./Nav.jsx";
+import Nav from "./Nav.jsx";
 import DayHeader from "./DayHeader.jsx";
+import NowStrip from "./NowStrip.jsx";
+import Popup from "./Popup.jsx";
 import { useRoute, useTheme, useNowTick } from "./hooks.js";
 import { usePlanner, readNow, ruleIdOf } from "./store.js";
 import { EC_MONTHS, GC_MONTHS, DOW, ecMonthDays, dayFromJdn } from "../calendar.mjs";
@@ -76,8 +78,14 @@ function DayPage({ jdn, planner, now, theme, onToggle }) {
 
       <DayHeader day={day} isToday={isToday} now={now} jdn={jdn} />
 
-      {/* Adjacency: yesterday sits above the day, tomorrow below it. */}
-      <Adjacent jdn={jdn - 1} dir="prev" />
+      {isToday ? (
+        <NowStrip
+          tasks={tasks}
+          nowMin={now.minutes}
+          jdn={jdn}
+          statusFor={planner.statusFor}
+        />
+      ) : null}
 
       {tasks.length === 0 ? (
         <div className="empty-day">
@@ -91,16 +99,16 @@ function DayPage({ jdn, planner, now, theme, onToggle }) {
           </div>
         </div>
       ) : (
+        /* Yesterday, today and tomorrow are one continuous timeline. */
         <Timeline
-          timeline={planner.timelineFor(jdn)}
+          key={jdn}
           jdn={jdn}
+          nowJdn={now.jdn}
           nowMin={now.minutes}
-          isToday={isToday}
+          timelineFor={planner.timelineFor}
           statusFor={planner.statusFor}
         />
       )}
-
-      <Adjacent jdn={jdn + 1} dir="next" />
     </div>
   );
 }
@@ -191,227 +199,190 @@ function BlueprintsPage({ planner, now, theme, onToggle, focus }) {
     [planner.allTasks, planner.categories],
   );
 
-  const [open, setOpen] = useState(focus ?? (patterns[0]?.id ?? null));
+  // Opening something is a popup, not a page. See ADR-0019.
+  const [openPattern, setOpenPattern] = useState(focus ?? null);
   const [openCat, setOpenCat] = useState(null);
   const [newCat, setNewCat] = useState(false);
   const [catName, setCatName] = useState("");
   const [catColor, setCatColor] = useState("blue");
 
-  const shown = patterns.find((p) => p.id === open) ?? null;
+  const pattern = patterns.find((p) => p.id === openPattern) ?? null;
+  const category = groups.find((c) => c.id === openCat) ?? null;
+
+  const taskRow = (t) => (
+    <a key={t.id} className={`slot${t.enabled === false ? " off" : ""}`} href={`#/task/${t.id}/${now.jdn}`}>
+      <span className="slot-t"><Time min={t.startMin} size={6} /></span>
+      {isMoment(t) ? (
+        <span className="slot-moment" />
+      ) : (
+        <span className="slot-bar" style={{ "--w": Math.min(100, (t.duration ?? 0) / 4.5) }} />
+      )}
+      <span className="slot-n">{t.title}</span>
+      <span className="slot-d">
+        {t.enabled === false ? "off" : isMoment(t) ? "moment" : fmtDur(t.duration ?? 0)}
+      </span>
+    </a>
+  );
 
   return (
     <div className="page">
       <Top back={{ href: "#/", label: "Today" }} theme={theme} onToggle={onToggle} />
 
-      <div className="bp-head">
+      {/* This page is for adding tasks. Everything else on it is secondary. */}
+      <div className="bp-hero">
         <h1 className="title">Blueprints</h1>
-        <a className="btn primary" href={`#/day/${now.jdn}/add`}>
-          <Icon name="plus" size={15} />
-          New task
+        <a className="bp-add" href={`#/day/${now.jdn}/add`}>
+          <Icon name="plus" size={18} />
+          <span>
+            <strong>New task</strong>
+            <small>Plan something you do</small>
+          </span>
         </a>
       </div>
 
-      {/* Patterns — observed, never authored. Most frequent first. */}
       {patterns.length ? (
         <>
           <h2 className="section">Patterns</h2>
-          <div className="pat-strip">
+          <div className="card-strip">
             {patterns.map((p) => (
-              <button
-                key={p.id}
-                className={`pat${open === p.id ? " on" : ""}`}
-                onClick={() => setOpen(open === p.id ? null : p.id)}
-              >
-                <Icon name="pattern" size={15} className="pat-i" />
-                <span className="pat-n">{p.name}</span>
-                <span className="pat-c">{p.cadence}</span>
-                <span className="pat-k">{p.tasks.length} task{p.tasks.length === 1 ? "" : "s"}</span>
+              <button key={p.id} className="sq" onClick={() => setOpenPattern(p.id)}>
+                <Icon name="pattern" size={16} className="sq-i" />
+                <span className="sq-n">{p.name}</span>
+                <span className="sq-c">{p.cadence}</span>
+                <span className="sq-k">{p.tasks.length} task{p.tasks.length === 1 ? "" : "s"}</span>
               </button>
             ))}
           </div>
-
-          {shown ? (
-            <div className="pat-open glass-quiet">
-              <div className="pat-open-head">
-                <span className="pat-open-name">{shown.name}</span>
-                <span className="dim">{shown.cadence}</span>
-              </div>
-              {/* A blueprint is a shape, so it reads as a schedule strip —
-                  deliberately unlike the day page, which is a timeline. */}
-              <div className="sched">
-                {shown.tasks
-                  .slice()
-                  .sort((a, b) => fromDawn(a.startMin ?? 0) - fromDawn(b.startMin ?? 0))
-                  .map((t) => (
-                    <a
-                      key={t.id}
-                      className={`slot${t.enabled === false ? " off" : ""}`}
-                      href={`#/task/${t.id}/${now.jdn}`}
-                    >
-                      <span className="slot-t"><Time min={t.startMin} size={6} /></span>
-                      {isMoment(t) ? (
-                        <span className="slot-moment" />
-                      ) : (
-                        <span className="slot-bar" style={{ "--w": Math.min(100, (t.duration ?? 0) / 4.5) }} />
-                      )}
-                      <span className="slot-n">{t.title}</span>
-                      <span className="slot-d">
-                        {t.enabled === false ? "off" : isMoment(t) ? "moment" : fmtDur(t.duration ?? 0)}
-                      </span>
-                    </a>
-                  ))}
-              </div>
-            </div>
-          ) : null}
         </>
       ) : null}
 
-      {/* Categories — the user's own grouping. */}
-      <div className="bp-head sub-head">
-        <h2 className="section" style={{ margin: 0 }}>Categories</h2>
-        <button className="linkline" onClick={() => setNewCat((v) => !v)}>
-          <Icon name={newCat ? "cross" : "plus"} size={14} />
-          {newCat ? "Cancel" : "New category"}
+      <h2 className="section" style={{ marginTop: "var(--sp-6)" }}>Categories</h2>
+      <div className="card-strip">
+        {/* Same square as a category, marked so it reads as the one that makes one. */}
+        <button className="sq sq-new" onClick={() => setNewCat(true)}>
+          <span className="sq-plus"><Icon name="plus" size={17} /></span>
+          <span className="sq-n">New category</span>
+          <span className="sq-c">Group tasks your way</span>
         </button>
+
+        {groups.map((c) => {
+          const col = colorOf(c.color);
+          return (
+            <button key={c.id} className="sq sq-cat" style={{ "--h": col.hue }} onClick={() => setOpenCat(c.id)}>
+              <span className="sq-dot" />
+              <span className="sq-n">{c.name}</span>
+              <span className="sq-c">{c.tasks.length} task{c.tasks.length === 1 ? "" : "s"}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {newCat ? (
-        <form
-          className="glass panel"
-          style={{ marginBottom: "var(--sp-4)" }}
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!catName.trim()) return;
-            planner.addCategory({ name: catName.trim(), color: catColor });
-            setCatName("");
-            setNewCat(false);
-          }}
-        >
-          <div className="field">
-            <label htmlFor="cn">Name</label>
-            <input
-              id="cn"
-              className="input"
-              value={catName}
-              onChange={(e) => setCatName(e.target.value)}
-              placeholder="School, home, errands…"
-              autoFocus
-            />
-          </div>
-          <div className="field">
-            <label>Colour</label>
-            <div className="swatches">
-              {CATEGORY_COLORS.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`swatch${catColor === c.id ? " on" : ""}`}
-                  style={{ "--h": c.hue }}
-                  onClick={() => setCatColor(c.id)}
-                  aria-label={c.label}
-                  title={c.label}
-                />
-              ))}
-            </div>
-          </div>
-          <button className="btn primary" type="submit" disabled={!catName.trim()}>
-            <Icon name="plus" size={15} />
-            Create
-          </button>
-        </form>
+      {loose.length && groups.length ? (
+        <p className="hint" style={{ marginTop: "var(--sp-3)" }}>
+          {loose.length} task{loose.length === 1 ? "" : "s"} not in any category.
+        </p>
       ) : null}
 
-      {groups.length === 0 && !newCat ? (
-        <div className="glass-quiet panel">
-          <div className="empty" style={{ padding: "var(--sp-5) var(--sp-4)" }}>
-            <div className="icon-slot"><Icon name="tag" size={18} /></div>
-            No categories yet. Group tasks your own way — school, home, whatever fits.
-          </div>
-        </div>
-      ) : (
-        <div className="cat-list">
-          {groups.map((c) => {
-            const col = colorOf(c.color);
-            const expanded = openCat === c.id;
-            return (
-              <div
-                key={c.id}
-                className={`cat glass-quiet${expanded ? " open" : ""}`}
-                style={{ "--h": col.hue }}
-              >
-                <div className="cat-head">
-                  <button
-                    className="cat-toggle"
-                    onClick={() => setOpenCat(expanded ? null : c.id)}
-                    aria-expanded={expanded}
-                  >
-                    <Icon name="chevRight" size={13} className="cat-chev" />
-                    <span className="cat-dot" />
-                    <span className="cat-name">{c.name}</span>
-                    <span className="cat-count">{c.tasks.length}</span>
-                  </button>
-                  <span className="cat-tools">
-                    {CATEGORY_COLORS.map((k) => (
-                      <button
-                        key={k.id}
-                        className={`swatch sm${c.color === k.id ? " on" : ""}`}
-                        style={{ "--h": k.hue }}
-                        onClick={() => planner.updateCategory(c.id, { color: k.id })}
-                        aria-label={`${c.name} in ${k.label}`}
-                        title={k.label}
-                      />
-                    ))}
-                    <button
-                      className="stepper"
-                      onClick={() => planner.removeCategory(c.id)}
-                      aria-label={`Delete ${c.name}`}
-                      title="Delete category"
-                    >
-                      <Icon name="trash" size={14} />
-                    </button>
-                  </span>
-                </div>
-                {expanded ? (
-                  c.tasks.length ? (
-                    <div className="sched">
-                      {c.tasks.map((t) => (
-                        <a key={t.id} className="slot" href={`#/task/${t.id}/${now.jdn}`}>
-                          <span className="slot-t"><Time min={t.startMin} size={6} /></span>
-                          <span className="slot-bar" style={{ "--w": Math.min(100, (t.duration ?? 0) / 4.5) }} />
-                          <span className="slot-n">{t.title}</span>
-                          <span className="slot-d">{t.rule ? patternName(t.rule) : "Once"}</span>
-                        </a>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="cat-empty">Nothing here yet.</div>
-                  )
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* ── popups ── */}
 
-      {loose.length && groups.length ? (
-        <div className="cat glass-quiet" style={{ "--h": 220, marginTop: "var(--sp-3)" }}>
-          <div className="cat-head">
-            <span className="cat-dot" style={{ opacity: 0.35 }} />
-            <span className="cat-name muted">Uncategorised</span>
-            <span className="cat-count">{loose.length}</span>
+      {pattern ? (
+        <Popup title={pattern.name} sub={pattern.cadence} onClose={() => setOpenPattern(null)}>
+          <div className="sched">
+            {pattern.tasks
+              .slice()
+              .sort((a, b) => fromDawn(a.startMin ?? 0) - fromDawn(b.startMin ?? 0))
+              .map(taskRow)}
           </div>
-          <div className="rows">
-            {loose.map((t) => (
-              <a key={t.id} className="row" href={`#/task/${t.id}/${now.jdn}`}>
-                <span className="grow">
-                  <div className="r-title">{t.title}</div>
-                  <div className="r-sub">{t.rule ? patternName(t.rule) : "One-off"}</div>
-                </span>
-                <Icon name="chevRight" size={15} className="dim" />
-              </a>
-            ))}
-          </div>
-        </div>
+        </Popup>
+      ) : null}
+
+      {category ? (
+        <Popup
+          title={category.name}
+          sub={`${category.tasks.length} task${category.tasks.length === 1 ? "" : "s"}`}
+          onClose={() => setOpenCat(null)}
+          footer={
+            <>
+              <span className="swatches">
+                {CATEGORY_COLORS.map((k) => (
+                  <button
+                    key={k.id}
+                    className={`swatch sm${category.color === k.id ? " on" : ""}`}
+                    style={{ "--h": k.hue }}
+                    onClick={() => planner.updateCategory(category.id, { color: k.id })}
+                    aria-label={`${category.name} in ${k.label}`}
+                    title={k.label}
+                  />
+                ))}
+              </span>
+              <button
+                className="btn"
+                style={{ marginLeft: "auto" }}
+                onClick={() => {
+                  planner.removeCategory(category.id);
+                  setOpenCat(null);
+                }}
+              >
+                <Icon name="trash" size={14} />
+                Delete
+              </button>
+            </>
+          }
+        >
+          {category.tasks.length ? (
+            <div className="sched">{category.tasks.map(taskRow)}</div>
+          ) : (
+            <div className="cat-empty">
+              Nothing here yet. Put a task in this category from its own page.
+            </div>
+          )}
+        </Popup>
+      ) : null}
+
+      {newCat ? (
+        <Popup title="New category" onClose={() => setNewCat(false)} width={400}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!catName.trim()) return;
+              planner.addCategory({ name: catName.trim(), color: catColor });
+              setCatName("");
+              setNewCat(false);
+            }}
+          >
+            <div className="field">
+              <label htmlFor="cn">Name</label>
+              <input
+                id="cn"
+                className="input"
+                value={catName}
+                onChange={(e) => setCatName(e.target.value)}
+                placeholder="School, home, errands…"
+                autoFocus
+              />
+            </div>
+            <div className="field">
+              <label>Colour</label>
+              <div className="swatches">
+                {CATEGORY_COLORS.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`swatch${catColor === c.id ? " on" : ""}`}
+                    style={{ "--h": c.hue }}
+                    onClick={() => setCatColor(c.id)}
+                    aria-label={c.label}
+                    title={c.label}
+                  />
+                ))}
+              </div>
+            </div>
+            <button className="btn primary" type="submit" disabled={!catName.trim()}>
+              <Icon name="plus" size={15} />
+              Create
+            </button>
+          </form>
+        </Popup>
       ) : null}
     </div>
   );
