@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Planner — UI Prototype</title>
+<style>
+  :root{
+    --ink:#14171f; --muted:#6b7280; --faint:#9aa1ae; --line:#e4e7ec; --bg:#f7f8fa;
+    --panel:#fff; --accent:#3d5afe; --accent-soft:#eef1ff; --warn:#b4531f; --ok:#2f7a55;
+    --radius:8px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    color:var(--ink);background:var(--bg);padding-bottom:90px}
+  button{font:inherit;cursor:pointer}
+  .banner{background:#141824;color:#c9d1e4;padding:9px 20px;font-size:13px;display:flex;
+    gap:10px;align-items:center;flex-wrap:wrap}
+  .banner strong{color:#fff}
+  .banner .tag{background:#2a3142;padding:2px 8px;border-radius:99px;font-size:11px;
+    letter-spacing:.04em;text-transform:uppercase}
+  .shell{display:grid;grid-template-columns:210px 1fr;min-height:calc(100vh - 130px)}
+  .side{background:var(--panel);border-right:1px solid var(--line);padding:16px 12px}
+  .side h4{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);
+    margin:0 0 8px;padding:0 8px}
+  .side .grp{margin-bottom:20px}
+  .pg{display:flex;align-items:center;gap:6px;width:100%;padding:7px 9px;border-radius:6px;
+    border:none;background:none;text-align:left;color:var(--ink);font-size:14px}
+  .pg:hover{background:var(--bg)}
+  .pg.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .pg .x{margin-left:auto;color:var(--faint);opacity:0;font-size:16px;line-height:1}
+  .pg:hover .x{opacity:1}
+  .pg .x:hover{color:var(--warn)}
+  .addbtn{width:100%;padding:7px 9px;border:1px dashed var(--line);border-radius:6px;
+    background:none;color:var(--muted);font-size:13px;text-align:left}
+  .addbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .main{padding:22px 26px;overflow:auto}
+  .hdr{display:flex;align-items:baseline;gap:14px;margin-bottom:4px;flex-wrap:wrap}
+  .hdr h1{font-size:22px;margin:0;letter-spacing:-.02em}
+  .load{font-size:13px;color:var(--muted)}
+  .load b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .load.over b{color:var(--warn)}
+  .vhint{color:var(--faint);font-size:13px;margin:0 0 18px}
+  .newrow{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+  input,select{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:6px;
+    background:#fff;color:var(--ink)}
+  input:focus,select:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+  .newrow input[type=text]{flex:1;min-width:150px}
+  .newrow input[type=number]{width:74px}
+  .go{background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:6px;padding:7px 15px}
+  .freq{font-size:11px;padding:2px 7px;border-radius:99px;background:var(--bg);
+    color:var(--muted);border:1px solid var(--line);text-transform:uppercase;letter-spacing:.04em}
+  .freq.daily{background:#fff1e8;color:#b4531f;border-color:#f6d9c6}
+  .freq.weekly{background:var(--accent-soft);color:var(--accent);border-color:#d6ddff}
+  .freq.monthly{background:#eef7f1;color:var(--ok);border-color:#cfe6d9}
+  .dur{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .done{text-decoration:line-through;color:var(--faint)}
+  .del{border:none;background:none;color:var(--faint);font-size:15px;line-height:1;padding:2px 5px;border-radius:4px}
+  .del:hover{color:var(--warn);background:#fdf0ea}
+  .empty{color:var(--faint);font-size:14px;padding:26px;text-align:center;
+    border:1px dashed var(--line);border-radius:var(--radius)}
+
+  /* A — Outline */
+  .out{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .row{display:flex;align-items:center;gap:9px;padding:8px 12px;border-bottom:1px solid #f2f4f7}
+  .row:last-child{border-bottom:none}
+  .row:hover{background:#fcfcfd}
+  .twist{width:15px;color:var(--faint);border:none;background:none;padding:0;font-size:10px}
+  .row input[type=checkbox]{accent-color:var(--accent)}
+  .ttl{flex:1;border:1px solid transparent;background:none;padding:3px 5px;border-radius:4px}
+  .ttl:hover{border-color:var(--line)}
+  .roll{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+  .kid{border:none;background:none;color:var(--faint);font-size:15px;padding:2px 5px;border-radius:4px}
+  .kid:hover{color:var(--accent);background:var(--accent-soft)}
+
+  /* B — Scenarios */
+  .btabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+  .btab{padding:7px 14px;border-radius:99px;border:1px solid var(--line);background:#fff;
+    font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}
+  .btab.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .btab .ld{font-size:11px;opacity:.75;font-variant-numeric:tabular-nums}
+  .cmp{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-bottom:18px}
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px}
+  .col.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .col h5{margin:0 0 3px;font-size:14px}
+  .col .big{font-size:23px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .col .sm{font-size:12px;color:var(--faint)}
+  .col .delta{font-size:12px;margin-top:5px}
+  .up{color:var(--warn)} .down{color:var(--ok)}
+  .flat{display:flex;flex-direction:column;gap:5px}
+  .fcard{background:var(--panel);border:1px solid var(--line);border-radius:6px;
+    padding:9px 12px;display:flex;align-items:center;gap:9px}
+
+  /* C — Flow */
+  .flow{display:flex;gap:0;overflow-x:auto;padding:6px 0 14px}
+  .lane{min-width:190px;flex:1;padding:0 9px;border-right:1px dashed var(--line);position:relative}
+  .lane:last-child{border-right:none}
+  .lane h5{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);
+    margin:0 0 9px;text-align:center}
+  .node{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:9px 11px;
+    margin-bottom:8px;position:relative}
+  .node:hover{border-color:var(--accent)}
+  .node .nt{font-size:14px;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+  .node .meta{display:flex;align-items:center;gap:6px}
+  .node.blocked{border-left:3px solid var(--warn)}
+  .node .deps{font-size:10px;color:var(--faint);margin-top:5px}
+  .lanesum{text-align:center;font-size:11px;color:var(--faint);padding-top:5px;border-top:1px solid var(--line)}
+
+  /* switcher */
+  .sw{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#14171f;
+    color:#fff;border-radius:99px;display:flex;align-items:center;gap:4px;padding:5px 6px;
+    box-shadow:0 8px 28px rgba(0,0,0,.3);z-index:99}
+  .sw button{background:none;border:none;color:#fff;font-size:17px;padding:5px 12px;border-radius:99px}
+  .sw button:hover{background:rgba(255,255,255,.14)}
+  .sw .lbl{padding:0 12px;font-size:13px;white-space:nowrap}
+  .sw .lbl b{color:#8fa2ff}
+  .sw .kbd{font-size:10px;color:#7c8496;padding-right:9px}
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <span class="tag">Prototype</span>
+  <strong>Three readings of "branching".</strong>
+  <span>Same data, same store — only the rendering changes. Pick one, or steal parts from each.</span>
+</div>
+
+<div class="shell">
+  <aside class="side">
+    <div class="grp">
+      <h4>Pages</h4>
+      <div id="pages"></div>
+      <button class="addbtn" id="newpage">+ New page</button>
+    </div>
+    <div class="grp" id="branchbox">
+      <h4>Branches</h4>
+      <div id="branches"></div>
+      <button class="addbtn" id="newbranch">+ Fork this plan</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="hdr">
+      <h1 id="pgname">—</h1>
+      <span class="load" id="load"></span>
+    </div>
+    <p class="vhint" id="vhint"></p>
+
+    <div class="newrow">
+      <input type="text" id="t" placeholder="New task…" />
+      <select id="f">
+        <option value="once">once</option>
+        <option value="daily">daily</option>
+        <option value="weekly" selected>weekly</option>
+        <option value="monthly">monthly</option>
+      </select>
+      <input type="number" id="d" value="30" min="0" step="5" title="Duration in minutes" />
+      <button class="go" id="add">Add</button>
+    </div>
+
+    <div id="view"></div>
+  </main>
+</div>
+
+<div class="sw">
+  <button id="prev">‹</button>
+  <span class="lbl">Variant <b id="vk">A</b> — <span id="vn"></span></span>
+  <button id="next">›</button>
+  <span class="kbd">← →</span>
+</div>
+
+<script type="module">
+// The pure store is inlined verbatim from src/store.mjs so this file stays a
+// single double-clickable artifact. No DOM inside it — it lifts out unchanged.
+const FREQUENCIES=["once","daily","weekly","monthly"];
+const PER_WEEK={once:0,daily:7,weekly:1,monthly:12/52};
+let seq=0;const nextId=p=>`${p}${++seq}`;
+const makeTask=({title,frequency="weekly",duration=30,parentId=null,branchId="main",dependsOn=[],done=false})=>{
+  if(!FREQUENCIES.includes(frequency))throw new Error(`Unknown frequency: ${frequency}`);
+  if(!Number.isFinite(duration)||duration<0)throw new Error(`Duration must be non-negative`);
+  return{id:nextId("t"),title,frequency,duration,parentId,branchId,dependsOn,done};};
+const taskLoad=t=>t.duration*PER_WEEK[t.frequency];
+const totalLoad=ts=>ts.reduce((s,t)=>s+taskLoad(t),0);
+const formatLoad=m=>{if(m<=0)return"—";if(m<60)return`${Math.round(m)}m/wk`;
+  const h=m/60;return`${h<10?h.toFixed(1):Math.round(h)}h/wk`;};
+const createStore=(init={})=>{
+  let state={pages:init.pages??[],tasks:init.tasks??[],activePageId:init.activePageId??null,
+    activeBranchId:"main",branches:[{id:"main",name:"Main plan",basedOn:null}]};
+  const ls=new Set();const emit=()=>ls.forEach(f=>f(state));
+  return{get:()=>state,subscribe(f){ls.add(f);return()=>ls.delete(f)},
+    addPage(name){const p={id:nextId("p"),name};state={...state,pages:[...state.pages,p],activePageId:p.id};emit();return p},
+    removePage(id){const pages=state.pages.filter(p=>p.id!==id);
+      state={...state,pages,tasks:state.tasks.filter(t=>t.pageId!==id),
+        activePageId:state.activePageId===id?(pages[0]?.id??null):state.activePageId};emit()},
+    selectPage(id){state={...state,activePageId:id};emit()},
+    addTask(f){const t={...makeTask({...f,branchId:state.activeBranchId}),pageId:f.pageId??state.activePageId};
+      state={...state,tasks:[...state.tasks,t]};emit();return t},
+    updateTask(id,patch){state={...state,tasks:state.tasks.map(t=>t.id===id?{...t,...patch}:t)};emit()},
+    removeTask(id){const doomed=new Set([id]);let grew=true;
+      while(grew){grew=false;for(const t of state.tasks)
+        if(t.parentId&&doomed.has(t.parentId)&&!doomed.has(t.id)){doomed.add(t.id);grew=true}}
+      state={...state,tasks:state.tasks.filter(t=>!doomed.has(t.id))
+        .map(t=>({...t,dependsOn:t.dependsOn.filter(d=>!doomed.has(d))}))};emit()},
+    toggleTask(id){state={...state,tasks:state.tasks.map(t=>t.id===id?{...t,done:!t.done}:t)};emit()},
+    forkBranch(name){const b={id:nextId("b"),name,basedOn:state.activeBranchId};
+      const map=new Map();const src=state.tasks.filter(t=>t.branchId===state.activeBranchId);
+      const copies=src.map(t=>{const c={...t,id:nextId("t"),branchId:b.id};map.set(t.id,c.id);return c});
+      for(const c of copies){if(c.parentId&&map.has(c.parentId))c.parentId=map.get(c.parentId);
+        c.dependsOn=c.dependsOn.map(d=>map.get(d)??d)}
+      state={...state,branches:[...state.branches,b],tasks:[...state.tasks,...copies],activeBranchId:b.id};
+      emit();return b},
+    selectBranch(id){state={...state,activeBranchId:id};emit()}};
+};
+const tasksFor=(s,{pageId,branchId}={})=>s.tasks.filter(t=>
+  t.pageId===(pageId??s.activePageId)&&t.branchId===(branchId??s.activeBranchId));
+const asTree=ts=>{const byId=new Map(ts.map(t=>[t.id,{...t,children:[]}]));const roots=[];
+  for(const n of byId.values()){const p=n.parentId?byId.get(n.parentId):null;
+    if(p)p.children.push(n);else roots.push(n)}return roots};
+const subtreeLoad=n=>taskLoad(n)+n.children.reduce((s,c)=>s+subtreeLoad(c),0);
+const asLayers=ts=>{const byId=new Map(ts.map(t=>[t.id,t]));const depth=new Map();const vis=new Set();
+  const d=t=>{if(depth.has(t.id))return depth.get(t.id);if(vis.has(t.id))return 0;vis.add(t.id);
+    const deps=t.dependsOn.map(x=>byId.get(x)).filter(Boolean);
+    const v=deps.length?Math.max(...deps.map(x=>d(x)+1)):0;vis.delete(t.id);depth.set(t.id,v);return v};
+  for(const t of ts)d(t);const max=Math.max(0,...depth.values());
+  const layers=Array.from({length:max+1},()=>[]);for(const t of ts)layers[depth.get(t.id)].push(t);
+  return layers};
+
+// ── seed: realistic density, because an empty route hides design problems ──
+const store=createStore();
+const week=store.addPage("This week");
+const health=store.addPage("Health");
+const launch=store.addPage("Launch");
+store.selectPage(week.id);
+const ship=store.addTask({title:"Ship the planner",frequency:"weekly",duration:120,pageId:week.id});
+const design=store.addTask({title:"Design review",frequency:"weekly",duration:45,parentId:ship.id,pageId:week.id});
+store.addTask({title:"Write the spec",frequency:"once",duration:90,parentId:design.id,pageId:week.id});
+store.addTask({title:"Build the store",frequency:"weekly",duration:60,parentId:ship.id,dependsOn:[design.id],pageId:week.id});
+store.addTask({title:"Inbox zero",frequency:"daily",duration:15,pageId:week.id});
+store.addTask({title:"Team standup",frequency:"daily",duration:10,pageId:week.id});
+store.addTask({title:"Retro",frequency:"monthly",duration:60,pageId:week.id});
+store.addTask({title:"Morning run",frequency:"daily",duration:35,pageId:health.id});
+store.addTask({title:"Long ride",frequency:"weekly",duration:150,pageId:health.id});
+store.addTask({title:"Physio",frequency:"monthly",duration:45,pageId:health.id});
+const spec=store.addTask({title:"Finalise pricing",frequency:"once",duration:120,pageId:launch.id});
+const site=store.addTask({title:"Landing page",frequency:"once",duration:240,dependsOn:[spec.id],pageId:launch.id});
+store.addTask({title:"Press kit",frequency:"once",duration:90,dependsOn:[spec.id],pageId:launch.id});
+store.addTask({title:"Go live",frequency:"once",duration:60,dependsOn:[site.id],pageId:launch.id});
+store.selectPage(week.id);
+
+const VARIANTS=[
+  {k:"A",name:"Outline — tasks nest into sub-tasks",
+   hint:"Branching = hierarchy. Every task can hold sub-tasks; load rolls up the tree. Keyboard-first, infinitely deep."},
+  {k:"B",name:"Scenarios — fork and compare whole plans",
+   hint:"Branching = versions. Fork the plan, change it freely, compare weekly load side by side. The list stays flat."},
+  {k:"C",name:"Flow — dependency lanes",
+   hint:"Branching = parallel paths. Tasks sit in lanes by what blocks them; independent work sits side by side."},
+];
+const WEEK_BUDGET=1800; // 30h — the point at which a plan is over-committed
+
+const params=new URLSearchParams(location.search);
+let variant=(params.get("variant")||"A").toUpperCase();
+if(!VARIANTS.some(v=>v.k===variant))variant="A";
+const collapsed=new Set();
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const freqSel=(t)=>`<select class="freq-edit" data-id="${t.id}">`+
+  FREQUENCIES.map(f=>`<option value="${f}" ${f===t.frequency?"selected":""}>${f}</option>`).join("")+`</select>`;
+
+function meta(t){
+  return `<span class="freq ${t.frequency}">${t.frequency}</span>`+
+    `<span class="dur">${t.duration}m</span>`+
+    (taskLoad(t)>0?`<span class="dur">· ${formatLoad(taskLoad(t))}</span>`:"");
+}
+
+// ── Variant A ──
+function renderA(tasks){
+  const roots=asTree(tasks);
+  if(!roots.length)return `<div class="empty">No tasks yet. Add one above.</div>`;
+  const row=(n,depth)=>{
+    const kids=n.children.length;
+    const isCol=collapsed.has(n.id);
+    return `<div class="row" style="padding-left:${12+depth*22}px">
+      ${kids?`<button class="twist" data-twist="${n.id}">${isCol?"▶":"▼"}</button>`:`<span class="twist"></span>`}
+      <input type="checkbox" data-tog="${n.id}" ${n.done?"checked":""} />
+      <input class="ttl ${n.done?"done":""}" value="${esc(n.title)}" data-title="${n.id}" />
+      ${freqSel(n)}
+      <input type="number" value="${n.duration}" min="0" step="5" style="width:68px" data-dur="${n.id}" />
+      ${kids?`<span class="roll">↳ ${formatLoad(subtreeLoad(n))}</span>`:""}
+      <button class="kid" data-kid="${n.id}" title="Add sub-task">+</button>
+      <button class="del" data-del="${n.id}">×</button>
+    </div>`+(isCol?"":n.children.map(c=>row(c,depth+1)).join(""));
+  };
+  return `<div class="out">${roots.map(r=>row(r,0)).join("")}</div>`;
+}
+
+// ── Variant B ──
+function renderB(tasks,state){
+  const pageId=state.activePageId;
+  const cols=state.branches.map(b=>{
+    const ts=tasksFor(state,{pageId,branchId:b.id});
+    return{b,load:totalLoad(ts),count:ts.length};
+  });
+  const base=cols[0].load;
+  const cmp=cols.map(c=>{
+    const d=c.load-base;
+    const on=c.b.id===state.activeBranchId;
+    return `<div class="col ${on?"on":""}">
+      <h5>${esc(c.b.name)}</h5>
+      <div class="sm">${c.count} task${c.count===1?"":"s"}</div>
+      <div class="big">${formatLoad(c.load)}</div>
+      ${c.b.basedOn?`<div class="delta ${d>0?"up":d<0?"down":""}">${d>0?"+":""}${formatLoad(Math.abs(d))===("—")?"same":((d>0?"+":"−")+formatLoad(Math.abs(d)))} vs main</div>`:`<div class="delta sm">baseline</div>`}
+    </div>`;
+  }).join("");
+  const list=tasks.length?tasks.map(t=>`<div class="fcard">
+      <input type="checkbox" data-tog="${t.id}" ${t.done?"checked":""} />
+      <input class="ttl ${t.done?"done":""}" value="${esc(t.title)}" data-title="${t.id}" />
+      ${freqSel(t)}
+      <input type="number" value="${t.duration}" min="0" step="5" style="width:68px" data-dur="${t.id}" />
+      <button class="del" data-del="${t.id}">×</button>
+    </div>`).join(""):`<div class="empty">This branch has no tasks.</div>`;
+  return `<div class="cmp">${cmp}</div><div class="flat">${list}</div>`;
+}
+
+// ── Variant C ──
+function renderC(tasks){
+  const layers=asLayers(tasks);
+  if(!tasks.length)return `<div class="empty">No tasks yet. Add one above.</div>`;
+  const byId=new Map(tasks.map(t=>[t.id,t]));
+  return `<div class="flow">`+layers.map((lane,i)=>`
+    <div class="lane">
+      <h5>${i===0?"Start now":`After stage ${i}`}</h5>
+      ${lane.map(t=>`<div class="node ${t.dependsOn.length?"blocked":""}">
+        <div class="nt"><input type="checkbox" data-tog="${t.id}" ${t.done?"checked":""} />
+          <input class="ttl ${t.done?"done":""}" value="${esc(t.title)}" data-title="${t.id}" />
+          <button class="del" data-del="${t.id}">×</button></div>
+        <div class="meta">${freqSel(t)}
+          <input type="number" value="${t.duration}" min="0" step="5" style="width:64px" data-dur="${t.id}" /></div>
+        ${t.dependsOn.length?`<div class="deps">after ${t.dependsOn.map(d=>esc(byId.get(d)?.title??"?")).join(", ")}</div>`:""}
+      </div>`).join("")}
+      <div class="lanesum">${formatLoad(totalLoad(lane))}</div>
+    </div>`).join("")+`</div>`;
+}
+
+function render(){
+  const s=store.get();
+  const v=VARIANTS.find(x=>x.k===variant);
+
+  $("pages").innerHTML=s.pages.map(p=>`<button class="pg ${p.id===s.activePageId?"on":""}" data-page="${p.id}">
+    <span>${esc(p.name)}</span><span class="x" data-delpage="${p.id}">×</span></button>`).join("");
+
+  $("branchbox").style.display=variant==="B"?"":"none";
+  $("branches").innerHTML=s.branches.map(b=>`<button class="pg ${b.id===s.activeBranchId?"on":""}" data-branch="${b.id}">${esc(b.name)}</button>`).join("");
+
+  const tasks=tasksFor(s);
+  const load=totalLoad(tasks);
+  $("pgname").textContent=s.pages.find(p=>p.id===s.activePageId)?.name??"—";
+  $("load").className="load"+(load>WEEK_BUDGET?" over":"");
+  $("load").innerHTML=`<b>${formatLoad(load)}</b> committed${load>WEEK_BUDGET?" · over a 30h week":""}`;
+  $("vhint").textContent=v.hint;
+  $("vk").textContent=v.k;
+  $("vn").textContent=v.name.split(" — ")[0];
+
+  $("view").innerHTML= variant==="A"?renderA(tasks) : variant==="B"?renderB(tasks,s) : renderC(tasks);
+}
+
+function setVariant(k){
+  variant=k;
+  const u=new URL(location);u.searchParams.set("variant",k);history.replaceState({},"",u);
+  render();
+}
+const cycle=d=>{const i=VARIANTS.findIndex(v=>v.k===variant);
+  setVariant(VARIANTS[(i+d+VARIANTS.length)%VARIANTS.length].k)};
+
+$("prev").onclick=()=>cycle(-1);
+$("next").onclick=()=>cycle(1);
+document.addEventListener("keydown",e=>{
+  const el=document.activeElement;
+  if(el&&(el.tagName==="INPUT"||el.tagName==="TEXTAREA"||el.tagName==="SELECT"||el.isContentEditable))return;
+  if(e.key==="ArrowLeft")cycle(-1);
+  if(e.key==="ArrowRight")cycle(1);
+});
+
+$("add").onclick=()=>{
+  const title=$("t").value.trim();if(!title)return;
+  store.addTask({title,frequency:$("f").value,duration:Number($("d").value)||0});
+  $("t").value="";$("t").focus();
+};
+$("t").addEventListener("keydown",e=>{if(e.key==="Enter")$("add").click()});
+$("newpage").onclick=()=>{const n=prompt("Page name?");if(n)store.addPage(n)};
+$("newbranch").onclick=()=>{const n=prompt("Name this branch?","Alternative");if(n)store.forkBranch(n)};
+
+document.body.addEventListener("click",e=>{
+  const t=e.target;
+  const dp=t.closest("[data-delpage]");
+  if(dp){e.stopPropagation();store.removePage(dp.dataset.delpage);return}
+  const pg=t.closest("[data-page]");if(pg){store.selectPage(pg.dataset.page);return}
+  const br=t.closest("[data-branch]");if(br){store.selectBranch(br.dataset.branch);return}
+  if(t.dataset.del){store.removeTask(t.dataset.del);return}
+  if(t.dataset.kid){store.addTask({title:"New sub-task",parentId:t.dataset.kid,duration:15});return}
+  if(t.dataset.twist){const id=t.dataset.twist;
+    collapsed.has(id)?collapsed.delete(id):collapsed.add(id);render();return}
+  if(t.dataset.tog){store.toggleTask(t.dataset.tog);return}
+});
+document.body.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset.dur)store.updateTask(t.dataset.dur,{duration:Number(t.value)||0});
+  if(t.classList.contains("freq-edit"))store.updateTask(t.dataset.id,{frequency:t.value});
+});
+document.body.addEventListener("blur",e=>{
+  const t=e.target;
+  if(t.dataset&&t.dataset.title){const v=t.value.trim();
+    if(v)store.updateTask(t.dataset.title,{title:v});else render()}
+},true);
+
+store.subscribe(render);
+render();
+</script>
+</body>
+</html>

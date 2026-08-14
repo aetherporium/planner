@@ -1,0 +1,8 @@
+{
+  "name": "planner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "vitest run", "prototype": "node -e \"console.log('Open prototypes/planner-ui.html')\"" },
+  "devDependencies": { "vitest": "^2.1.8" }
+}
