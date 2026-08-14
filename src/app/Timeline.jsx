@@ -15,7 +15,7 @@
 import { useEffect, useRef } from "react";
 import Icon from "./Icon.jsx";
 import Mark from "./Mark.jsx";
-import { t12, h12 } from "./format.js";
+import { t12, rulerHour, fromDawn, parts } from "./format.js";
 import { fmtDur, GAP_KINDS, STATUS } from "../log.mjs";
 
 const HOURS = Array.from({ length: 25 }, (_, i) => i);
@@ -40,12 +40,14 @@ export default function Timeline({
     if (!scrollToNow || didScroll.current) return;
     const el = scrollRef.current;
     if (!el) return;
-    const target = isToday ? nowMin : 7 * 60;
+    const target = isToday ? fromDawn(nowMin) : 60;
     el.scrollTop = Math.max(0, target * pxPerMin - height * 0.38);
     didScroll.current = true;
   }, [isToday, nowMin, pxPerMin, height, scrollToNow]);
 
-  const fillMin = isToday ? nowMin : jdn < 0 ? 0 : null;
+  // Everything on this canvas is measured from dawn, not from midnight.
+  const nowFromDawn = fromDawn(nowMin);
+  const fillMin = isToday ? nowFromDawn : null;
 
   return (
     <div className="tl-wrap">
@@ -59,8 +61,8 @@ export default function Timeline({
               style={{ top: h * 60 * pxPerMin }}
             >
               <div className="lab">
-                <span>{h === 24 ? 12 : h12(h)}</span>
-                <Mark pm={h >= 12 && h < 24} size={5} />
+                <span>{rulerHour(h * 60)}</span>
+                <Mark night={h >= 12 && h < 24} size={5} />
               </div>
               <div className="rule" />
             </div>
@@ -75,8 +77,8 @@ export default function Timeline({
 
           {isToday ? (
             <>
-              <div className="tl-nowline" style={{ top: nowMin * pxPerMin }} />
-              <div className="tl-nowdot" style={{ top: nowMin * pxPerMin }} />
+              <div className="tl-nowline" style={{ top: nowFromDawn * pxPerMin }} />
+              <div className="tl-nowdot" style={{ top: nowFromDawn * pxPerMin }} />
             </>
           ) : null}
 
@@ -122,8 +124,8 @@ export default function Timeline({
               const t = item.task;
               const entry = statusFor?.(t.id, jdn);
               const st = entry?.status;
-              const past = isToday ? item.endMin <= nowMin : false;
-              const current = isToday && item.startMin <= nowMin && nowMin < item.endMin;
+              const past = isToday ? item.endMin <= nowFromDawn : false;
+              const current = isToday && item.startMin <= nowFromDawn && nowFromDawn < item.endMin;
               const tiny = h < 34;
 
               const cls = [
@@ -146,7 +148,7 @@ export default function Timeline({
                     {st === STATUS.RESCHEDULED ? <Icon name="repeat" size={13} /> : null}
                     <span className="ev-title">{t.title}</span>
                     <span className="ev-meta">
-                      {t12(item.startMin)}
+                      {t12(t.startMin)}
                       {tiny ? "" : ` · ${fmtDur(t.duration ?? 0)}`}
                     </span>
                   </div>

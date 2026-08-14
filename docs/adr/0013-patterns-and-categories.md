@@ -38,3 +38,18 @@ releases its tasks rather than deleting them.
 - `#/blueprint/<id>` no longer exists. Patterns expand in place.
 - Defaults are product, not user data, so a default's category is stored
   separately in `planner:defaultCats` rather than mutating the default.
+
+
+## Amendment — expansion, and a vocabulary of its own
+
+Two follow-up corrections:
+
+**Categories expand in place.** Clicking a category opened a new view, which
+broke the one-view rule and made a grouping feel like a destination. A category
+now expands inline under its own header; the hash does not change.
+
+**A blueprint is not a day.** Pattern contents reused the day page's row style,
+so a blueprint looked like today. It now renders as a **schedule strip**: a
+time, a proportional duration bar, a name. It shows the *shape* of a kind of
+day without pretending to be a timeline — no hour ruler, no now-marker, no
+24-hour canvas. Ordering runs from dawn, so Wake comes first.

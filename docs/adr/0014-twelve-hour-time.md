@@ -1,30 +1,48 @@
-# ADR-0014 — Twelve-hour time, with a mark instead of am/pm
+# ADR-0014 — The Ethiopian clock: the day begins at dawn
 
-**Status:** Accepted
+**Status:** Accepted (supersedes the midnight-anchored 12-hour reading)
 
 ## Context
 
-The app displayed 24-hour time (`19:30`). The day it describes starts at 12 in
-the morning and is read in twelve-hour form.
+The app read 6:00 as "6 in the morning". The user wakes at **12**. That is the
+Ethiopian clock, and it is not a formatting preference — it is a different
+zero. The day starts at dawn, so 06:00 international is hour zero, and the
+count runs 12, 1, 2 … 11 through daylight, then 12, 1 … 11 again at night.
+
+The bug this exposed: with the day anchored at midnight, a 22:30 sleep of 450
+minutes ran to 1800 of 1440 and fell off the bottom of the canvas, which is why
+the page was too long.
 
 ## Decision
 
-Every time on screen renders as 12-hour: `12:00`, `7:30`, `12:30`, `11:45`.
-`fmtTime` in the domain layer still returns 24-hour and is still what the tests
-assert on — this is a display concern only, kept in `src/app/format.js`.
+**Reading.** `parts(min)` returns the Ethiopian hour and whether it is night.
 
-Morning and afternoon are told apart by a **mark, not by letters**:
+| International | Reads | |
+|---|---|---|
+| 06:00 | 12:00 | day |
+| 07:00 | 1:00 | day |
+| 12:30 | 6:30 | day |
+| 18:00 | 12:00 | night |
+| 19:30 | 1:30 | night |
+| 22:30 | 4:30 | night |
+| 00:00 | 6:00 | night |
 
-- hollow ring — before noon
-- filled disc — noon onwards
+Day runs 06:00–17:59, night 18:00–05:59, shown by a hollow or filled mark —
+never the letters am/pm.
 
-It sits beside the time as punctuation, needs no legend after one day of use,
-and survives translation. The timeline ruler reads 12, 1, 2 … 11, 12, 1 … with
-the mark on each label; the analog clock prints 12 at the top; the add form
-picks morning or afternoon with two marks rather than an am/pm toggle.
+**Geometry.** The timeline is anchored at `DAWN` too, not midnight. Positions
+are `fromDawn(startMin)`, so the canvas runs wake → sleep in the order they are
+lived, and sleep at 22:30 for 450 minutes ends at exactly 1440 — the last pixel
+of the day rather than 360 past it.
+
+**Storage never changes.** The domain layer still keeps minutes from midnight
+and `fmtTime` still returns 24-hour; all 54 domain tests are untouched. This is
+a reading, applied at the edge in `src/app/format.js`.
 
 ## Consequences
 
-- `parts12`, `t12`, `h12` in `src/app/format.js`; `<Mark>` and `<Time>` in
-  `src/app/Mark.jsx`.
-- A test asserts the strings "am"/"pm" appear nowhere in the rendered UI.
+- `parseEth("1:30", night)` turns a typed Ethiopian time back into storage.
+- The analog dial is an ordinary twelve-hour face with 12 at the top; the hour
+  hand is offset six hours, which is exactly what the reading means.
+- Defaults did not move. Wake was always 06:00; it now *reads* as 12, which is
+  what the user was saying all along.

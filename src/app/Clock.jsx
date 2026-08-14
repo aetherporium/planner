@@ -1,11 +1,16 @@
 /**
- * The clock, both ways at once — a large analog face with the digital reading
- * beside it. Twelve-hour, because the day starts at 12 in the morning.
+ * The clock, both ways at once — a large analog face and the digital reading.
  *
- * Morning and afternoon are told apart by the mark, not by letters.
+ * It shows the ETHIOPIAN clock: the day starts at dawn, so 06:00 by the
+ * international clock is 12 here. The face is a normal twelve-hour dial with
+ * 12 at the top; the hands are simply offset six hours, which is exactly what
+ * the reading means.
+ *
+ * Day and night are told apart by the mark, not by letters.
  */
 
 import Mark from "./Mark.jsx";
+import { parts } from "./format.js";
 
 const hand = (angleDeg, len, c = 50) => {
   const a = ((angleDeg - 90) * Math.PI) / 180;
@@ -13,12 +18,12 @@ const hand = (angleDeg, len, c = 50) => {
 };
 
 export default function Clock({ minutes, seconds = 0, size = 72 }) {
-  const h24 = Math.floor(minutes / 60);
+  const p = parts(minutes);
   const m = minutes % 60;
-  const h = h24 % 12 === 0 ? 12 : h24 % 12;
-  const pm = h24 >= 12;
 
-  const hp = hand(((h24 % 12) + m / 60) * 30, 25);
+  // Hour hand runs on the Ethiopian hour, so it points where the dial reads.
+  const ethHour = (p.h % 12) + m / 60;
+  const hp = hand(ethHour * 30, 25);
   const mp = hand((m + seconds / 60) * 6, 36);
   const sp = hand(seconds * 6, 39);
 
@@ -29,11 +34,10 @@ export default function Clock({ minutes, seconds = 0, size = 72 }) {
         width={size}
         height={size}
         viewBox="0 0 100 100"
-        aria-label={`${h}:${String(m).padStart(2, "0")} ${pm ? "afternoon" : "morning"}`}
+        aria-label={`${p.h}:${String(p.m).padStart(2, "0")} ${p.night ? "night" : "day"}`}
       >
         <circle cx="50" cy="50" r="47" fill="var(--surface-2)" stroke="var(--line)" strokeWidth="1" />
 
-        {/* 12 hour ticks; the quarters are longer */}
         {Array.from({ length: 12 }, (_, i) => {
           const major = i % 3 === 0;
           const a = hand(i * 30, 43);
@@ -49,17 +53,9 @@ export default function Clock({ minutes, seconds = 0, size = 72 }) {
           );
         })}
 
-        {/* 12 sits at the top — the hour the day begins on */}
-        <text
-          x="50" y="24"
-          textAnchor="middle"
-          fill="var(--ink-3)"
-          fontSize="11"
-          fontWeight="500"
-          fontFamily="var(--sans)"
-        >
-          12
-        </text>
+        {/* 12 sits at the top — dawn, the hour the day turns over */}
+        <text x="50" y="24" textAnchor="middle" fill="var(--ink-3)"
+          fontSize="11" fontWeight="500" fontFamily="var(--sans)">12</text>
 
         <line x1="50" y1="50" x2={hp.x} y2={hp.y} stroke="var(--ink)" strokeWidth="4.2" strokeLinecap="round" />
         <line x1="50" y1="50" x2={mp.x} y2={mp.y} stroke="var(--ink)" strokeWidth="2.8" strokeLinecap="round" />
@@ -69,9 +65,9 @@ export default function Clock({ minutes, seconds = 0, size = 72 }) {
 
       <div className="clock-digits">
         <div className="clock-time">
-          {h}:{String(m).padStart(2, "0")}
+          {p.h}:{String(p.m).padStart(2, "0")}
           <span className="sec">:{String(seconds).padStart(2, "0")}</span>
-          <Mark pm={pm} size={9} style={{ marginLeft: 7 }} />
+          <Mark night={p.night} size={9} style={{ marginLeft: 7 }} />
         </div>
       </div>
     </div>

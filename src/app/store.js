@@ -13,6 +13,7 @@ import { buildDefaults } from "../defaults.mjs";
 import { firesOn, describeRule } from "../blueprint.mjs";
 import { STATUS, makeEntry, statusOf, timelineWithGaps } from "../log.mjs";
 import { usePersisted } from "./hooks.js";
+import { fromDawn, toClock } from "./format.js";
 
 /** Real wall-clock now, as (jdn, minutes, seconds). */
 export const readNow = () => {
@@ -108,8 +109,15 @@ export const usePlanner = () => {
   );
 
   /** Planned tasks plus their gaps — the continuous 24h day. */
+  // The day runs dawn to dawn, so a 22:30 sleep of 450 minutes ends exactly at
+  // the day's edge instead of overflowing past it.
   const timelineFor = useCallback(
-    (jdn) => timelineWithGaps(tasksFor(jdn), { dayStartMin: 0, dayEndMin: 1440 }),
+    (jdn) => {
+      const shifted = tasksFor(jdn).map((t) => ({ ...t, startMin: fromDawn(t.startMin) }));
+      return timelineWithGaps(shifted, { dayStartMin: 0, dayEndMin: 1440 }).map((it) =>
+        it.kind === "task" ? { ...it, task: { ...it.task, startMin: toClock(it.task.startMin) } } : it,
+      );
+    },
     [tasksFor],
   );
 

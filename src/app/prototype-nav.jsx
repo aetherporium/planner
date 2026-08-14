@@ -28,6 +28,7 @@ import Timeline from "./Timeline.jsx";
 import { Time } from "./Mark.jsx";
 import { dayFromJdn, GC_MONTHS, DOW, EC_MONTHS } from "../calendar.mjs";
 import { patternsIn } from "../patterns.mjs";
+import { fromDawn } from "./format.js";
 import { fmtDur } from "../log.mjs";
 
 const EC_M_AM = [
@@ -297,6 +298,10 @@ export default function NavPrototype({ variant = "A", planner, now }) {
       <div className="proto-tag">
         Prototype · navigation · throwaway
       </div>
+      <a className="top-back" href="#/blueprints" style={{ marginBottom: 16 }}>
+        <Icon name="arrowLeft" size={16} />
+        Back to the app
+      </a>
       <V planner={planner} now={now} />
       <Switcher current={VARIANTS.some(([k]) => k === variant) ? variant : "A"} />
     </div>

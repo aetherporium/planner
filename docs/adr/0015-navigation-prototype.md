@@ -1,6 +1,6 @@
 # ADR-0015 — Navigation prototype (open question)
 
-**Status:** Proposed — awaiting the user's pick
+**Status:** Accepted — variant C (Orbit) promoted
 
 ## Context
 
@@ -33,3 +33,24 @@ deliberately high-contrast so it reads as scaffolding, not design.
   block, and the `#/prototype` route are deleted.
 - Until then the app keeps the plain top bar: back on the left, theme on the
   right.
+
+
+## Outcome
+
+**C — Orbit won**, and is now the app's navigation (`src/app/Nav.jsx`).
+
+The deciding problem was that the app had *no* reachable navigation at all: the
+day page had no way to get to the calendar or blueprints, so most of the app
+was unreachable. A always demanded a gesture the user could not discover, and B
+hid every destination behind knowing its name. C is the only one of the three
+that answers "what is in this app?" without being told.
+
+Changes made when promoting it:
+
+- Spokes are `<a href>`, not buttons, so back and forward keep working.
+- The current page's spoke is marked, so the anchor doubles as a "you are here".
+- Closed spokes leave the tab order; Escape and any hash change close it.
+
+A and B remain browsable at `#/prototype/<A|B|C>`, linked from the blueprints
+page, and `src/app/prototype-nav.jsx` stays throwaway until the user is done
+comparing.

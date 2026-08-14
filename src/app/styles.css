@@ -1138,11 +1138,11 @@ kbd {
 .sum-sub { font-size: var(--f-xs); color: var(--ink-4); margin-left: auto; }
 .sum-none { padding: var(--sp-4); font-size: var(--f-sm); color: var(--ink-4); text-align: center; }
 
-/* C — orbit */
+/* orbit navigation — promoted from the prototype */
 .orbit {
   position: fixed;
-  right: 28px;
-  bottom: 96px;
+  right: 24px;
+  bottom: 24px;
   width: 54px;
   height: 54px;
   z-index: 40;
@@ -1178,7 +1178,9 @@ kbd {
   transition: transform 220ms var(--ease), opacity 180ms var(--ease);
 }
 .orbit.open .spoke { opacity: 1; pointer-events: auto; }
-.spoke:hover { color: var(--accent); }
+.spoke:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.spoke.current { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+a.spoke { text-decoration: none; }
 
 .spoke-l {
   position: absolute;
@@ -1226,4 +1228,127 @@ kbd {
 @media (max-width: 620px) {
   .sw-label { font-size: var(--f-xs); max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
   .dayhead { flex-direction: row; align-items: center; }
+}
+
+/* ── Navigation scrim ─────────────────────────────────────────────────── */
+
+.nav-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: color-mix(in srgb, var(--bg) 40%, transparent);
+  backdrop-filter: blur(2px);
+  animation: fade 160ms var(--ease);
+}
+
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* room for the anchor so it never covers the last row */
+.shell { padding-bottom: 96px; }
+
+/* ── Blueprint: schedule strip. Deliberately not the day timeline. ────── */
+
+.pat-open {
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  margin-bottom: var(--sp-5);
+  animation: rise 160ms var(--ease) both;
+}
+
+.pat-open-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding-bottom: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--f-sm);
+}
+
+.pat-open-name { font-weight: var(--w-semi); letter-spacing: var(--ls-tight); }
+
+.sched { display: flex; flex-direction: column; }
+
+.slot {
+  display: grid;
+  grid-template-columns: 62px 104px 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 7px var(--sp-2);
+  border-radius: var(--r-sm);
+  transition: background var(--dur) var(--ease);
+  min-width: 0;
+}
+
+.slot:hover { background: var(--hover); }
+.slot.off { opacity: 0.5; }
+
+.slot-t {
+  font-size: var(--f-xs);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* a proportional bar, so a blueprint shows shape without being a timeline */
+.slot-bar {
+  height: 5px;
+  width: calc(var(--w) * 1%);
+  min-width: 6px;
+  border-radius: var(--r-full);
+  background: color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+.slot-n {
+  font-size: var(--f-sm);
+  font-weight: var(--w-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slot-d { font-size: var(--f-xs); color: var(--ink-4); }
+
+/* ── Categories expand in place ───────────────────────────────────────── */
+
+.cat-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border-radius: var(--r-sm);
+  text-align: left;
+  transition: background var(--dur) var(--ease);
+}
+
+.cat-toggle:hover { background: var(--hover); }
+
+.cat-chev {
+  color: var(--ink-4);
+  transition: transform var(--dur) var(--ease);
+}
+
+.cat.open .cat-chev { transform: rotate(90deg); }
+.cat.open { border-left-width: 3px; }
+.cat.open .sched { animation: rise 160ms var(--ease) both; }
+
+/* ── Prototype link ───────────────────────────────────────────────────── */
+
+.proto-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: var(--sp-5);
+  font-size: var(--f-xs);
+  color: var(--gold);
+  background: var(--gold-soft);
+  border-radius: var(--r-full);
+  padding: 5px 12px;
+  transition: opacity var(--dur) var(--ease);
+}
+.proto-link:hover { opacity: 0.8; }
+
+@media (max-width: 620px) {
+  .slot { grid-template-columns: 56px 64px 1fr auto; gap: var(--sp-2); }
 }

@@ -9,7 +9,7 @@ import { render, screen, cleanup, within, fireEvent } from "@testing-library/rea
 import App from "./App.jsx";
 import { parseHash } from "./hooks.js";
 import { readNow, ruleIdOf, ruleById } from "./store.js";
-import { t12, parts12 } from "./format.js";
+import { t12, parts, fromDawn, parseEth, DAWN } from "./format.js";
 import { dayFromJdn } from "../calendar.mjs";
 
 const at = (hash) => {
@@ -181,11 +181,11 @@ describe("product rules hold in the UI", () => {
   it("keeps Amharic to the calendar, English everywhere else", () => {
     const ethiopic = /[\u1200-\u137F]/;
     const { container } = at("#/blueprints");
-    // The blueprint index is pure English.
-    expect(container.querySelector(".rows").textContent).not.toMatch(ethiopic);
+    // The blueprints page is pure English.
+    expect(container.querySelector(".page").textContent).not.toMatch(ethiopic);
     cleanup();
 
-    const cal = at("#/calendar").container;
+    const cal = at("#/calendar").container.querySelector(".page");
     // Every Ethiopic string in the calendar is inside an .am element.
     for (const node of cal.querySelectorAll("*")) {
       if (node.children.length === 0 && ethiopic.test(node.textContent)) {
@@ -197,7 +197,7 @@ describe("product rules hold in the UI", () => {
   it("renders the clock in analog and digital form at once", () => {
     const { container } = at("#/");
     expect(container.querySelector("svg.clock-face")).toBeTruthy();
-    expect(container.querySelector(".clock-time").textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+    expect(container.querySelector(".clock-time").textContent).toMatch(/^\d{1,2}:\d{2}:\d{2}$/);
   });
 
   it("has no floating clock pill and no quick-add on the day", () => {
@@ -272,21 +272,20 @@ describe("the 24-hour timeline", () => {
     // Wake is tiny but still clickable.
     expect(h("Wake")).toBeGreaterThanOrEqual(16);
 
-    // Position is start time.
-    expect(top("Breakfast")).toBeCloseTo(7 * 60 * px, 1);
-    expect(top("Lunch")).toBeCloseTo((12 * 60 + 30) * px, 1);
+    // Position is measured from dawn, because the day begins at dawn.
+    expect(top("Wake")).toBeCloseTo(0, 1);                       // 06:00 = hour 0
+    expect(top("Breakfast")).toBeCloseTo(60 * px, 1);            // 07:00 = 1h in
+    expect(top("Lunch")).toBeCloseTo((6 * 60 + 30) * px, 1);     // 12:30 = 6.5h in
   });
 
   it("draws a fill that ends at the current minute", () => {
     const { container } = at("#/");
     const fill = container.querySelector(".tl-fill");
     expect(fill).toBeTruthy();
-    expect(parseFloat(fill.style.height)).toBeCloseTo(readNow().minutes * px, 0);
+    const elapsed = fromDawn(readNow().minutes) * px;
+    expect(parseFloat(fill.style.height)).toBeCloseTo(elapsed, 0);
     // and the marker sits at the same place
-    expect(parseFloat(container.querySelector(".tl-nowdot").style.top)).toBeCloseTo(
-      readNow().minutes * px,
-      0,
-    );
+    expect(parseFloat(container.querySelector(".tl-nowdot").style.top)).toBeCloseTo(elapsed, 0);
   });
 
   it("has no fill or now-marker on a day that is not today", () => {
@@ -348,20 +347,44 @@ describe("blueprint wiring", () => {
 });
 
 
-describe("12-hour time starting at 12 in the morning", () => {
-  it("reads midnight as 12 and noon as 12", () => {
-    expect(t12(0)).toBe("12:00");
-    expect(t12(720)).toBe("12:00");
-    expect(parts12(0).pm).toBe(false);
-    expect(parts12(720).pm).toBe(true);
+describe("the Ethiopian clock — the day begins at dawn", () => {
+  it("reads 6 in the morning as 12", () => {
+    expect(t12(6 * 60)).toBe("12:00");
+    expect(parts(6 * 60).night).toBe(false);
+  });
+
+  it("reads the defaults the way the user says them", () => {
+    expect(t12(6 * 60)).toBe("12:00");        // wake
+    expect(t12(7 * 60)).toBe("1:00");         // breakfast
+    expect(t12(12 * 60 + 30)).toBe("6:30");   // lunch
+    expect(t12(19 * 60 + 30)).toBe("1:30");   // dinner
+    expect(t12(22 * 60 + 30)).toBe("4:30");   // sleep
+    expect(t12(0)).toBe("6:00");              // midnight
+  });
+
+  it("turns over to night at six in the evening", () => {
+    expect(parts(17 * 60 + 59).night).toBe(false);
+    expect(parts(18 * 60).night).toBe(true);
+    expect(t12(18 * 60)).toBe("12:00");
+    expect(parts(5 * 60 + 59).night).toBe(true);
+    expect(parts(6 * 60).night).toBe(false);
   });
 
   it("never runs past 12", () => {
     for (let m = 0; m < 1440; m += 7) {
-      const p = parts12(m);
+      const p = parts(m);
       expect(p.h).toBeGreaterThanOrEqual(1);
       expect(p.h).toBeLessThanOrEqual(12);
     }
+  });
+
+  it("round-trips typed times", () => {
+    expect(parseEth("12:00", false)).toBe(6 * 60);
+    expect(parseEth("1:00", false)).toBe(7 * 60);
+    expect(parseEth("6:30", false)).toBe(12 * 60 + 30);
+    expect(parseEth("1:30", true)).toBe(19 * 60 + 30);
+    expect(parseEth("4:30", true)).toBe(22 * 60 + 30);
+    expect(parseEth("13:00", false)).toBeNull();
   });
 
   it("uses no am/pm letters anywhere in the UI", () => {
@@ -372,27 +395,43 @@ describe("12-hour time starting at 12 in the morning", () => {
     }
   });
 
-  it("marks morning and afternoon visually instead", () => {
+  it("marks day and night visually instead", () => {
     const { container } = at("#/");
-    const marks = container.querySelectorAll('[role="img"][aria-label="morning"], [role="img"][aria-label="afternoon"]');
+    const marks = container.querySelectorAll(
+      '[role="img"][aria-label="day"], [role="img"][aria-label="night"]',
+    );
     expect(marks.length).toBeGreaterThan(4);
   });
 
-  it("labels the timeline ruler 12, 1, 2 … not 13, 14", () => {
+  it("labels the ruler 12, 1, 2 … starting at dawn", () => {
     const { container } = at("#/");
     const labs = [...container.querySelectorAll(".tl-hour .lab")].map((l) =>
       Number(l.textContent.trim()),
     );
-    expect(labs[0]).toBe(12);
-    expect(labs[13]).toBe(1);
+    expect(labs[0]).toBe(12);   // dawn
+    expect(labs[1]).toBe(1);
+    expect(labs[12]).toBe(12);  // dusk
     expect(Math.max(...labs)).toBe(12);
   });
 
-  it("shows the clock in 12-hour form with a mark", () => {
+  it("shows the clock in Ethiopian form with a mark", () => {
     const { container } = at("#/");
     const digits = container.querySelector(".clock-time");
     expect(digits.textContent).toMatch(/^\d{1,2}:\d{2}:\d{2}$/);
     expect(digits.querySelector('[role="img"]')).toBeTruthy();
+  });
+
+  it("fits sleep inside the day instead of overflowing it", () => {
+    const { container } = at("#/");
+    const sleep = [...container.querySelectorAll("a.ev")].find((e) =>
+      /Sleep/.test(e.textContent),
+    );
+    const top = parseFloat(sleep.style.top);
+    const height = parseFloat(sleep.style.height);
+    const canvas = parseFloat(container.querySelector(".tl-canvas").style.height);
+    // 22:30 is 16.5h after dawn; +450min lands exactly on the end of the day.
+    expect(top).toBeCloseTo(16.5 * 60 * 1.15, 0);
+    expect(top + height).toBeLessThanOrEqual(canvas + 1);
   });
 });
 
@@ -413,8 +452,17 @@ describe("categories", () => {
     const cat = container.querySelector(".cat");
     expect(cat.textContent).toMatch(/School/);
     expect(cat.style.getPropertyValue("--h")).toBe("268"); // violet
-    expect(cat.textContent).toMatch(/Nothing here yet/);
     expect(JSON.parse(localStorage.getItem("planner:categories"))[0].name).toBe("School");
+
+    // Collapsed by default; expanding happens in place, not on a new page.
+    expect(cat.querySelector(".sched")).toBeNull();
+    expect(cat.classList.contains("open")).toBe(false);
+    fireEvent.click(cat.querySelector(".cat-toggle"));
+    const after = container.querySelector(".cat");
+    expect(after.classList.contains("open")).toBe(true);
+    expect(after.textContent).toMatch(/Nothing here yet/);
+    // Still the same page — no navigation happened.
+    expect(window.location.hash).toBe("#/blueprints");
   });
 
   it("deleting a category releases its tasks instead of deleting them", () => {
@@ -438,6 +486,7 @@ describe("categories", () => {
     cleanup();
 
     const bp = at("#/blueprints");
+    fireEvent.click(bp.container.querySelector(".cat-toggle"));
     expect(bp.container.querySelector(".cat").textContent).toMatch(/Lunch/);
     fireEvent.click(bp.container.querySelector('[aria-label="Delete Home"]'));
 
@@ -490,5 +539,110 @@ describe("the navigation prototype", () => {
   it("falls back to A on a bad variant", () => {
     const { container } = at("#/prototype/Z");
     expect(container.querySelector(".adj")).toBeTruthy();
+  });
+});
+
+describe("every page is reachable", () => {
+  it("the orbit anchor is present on every page", () => {
+    for (const hash of ["#/", "#/calendar", "#/blueprints", `#/day/${readNow().jdn}/add`]) {
+      const { container } = at(hash);
+      expect(container.querySelector(".orbit .anchor")).toBeTruthy();
+      cleanup();
+    }
+  });
+
+  it("opens to three real links covering the whole app", () => {
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector(".anchor"));
+    const spokes = [...container.querySelectorAll("a.spoke")];
+    expect(spokes.map((s) => s.getAttribute("href"))).toEqual([
+      "#/",
+      "#/calendar",
+      "#/blueprints",
+    ]);
+    // They are anchors, so back/forward keeps working.
+    for (const s of spokes) expect(s.tagName).toBe("A");
+  });
+
+  it("marks where you already are", () => {
+    const { container } = at("#/calendar");
+    fireEvent.click(container.querySelector(".anchor"));
+    const current = container.querySelector("a.spoke.current");
+    expect(current.getAttribute("href")).toBe("#/calendar");
+  });
+
+  it("keeps the spokes out of the tab order while closed", () => {
+    const { container } = at("#/");
+    for (const s of container.querySelectorAll("a.spoke")) {
+      expect(s.getAttribute("tabindex")).toBe("-1");
+    }
+    fireEvent.click(container.querySelector(".anchor"));
+    for (const s of container.querySelectorAll("a.spoke")) {
+      expect(s.getAttribute("tabindex")).toBe("0");
+    }
+  });
+
+  it("links to the navigation prototype from blueprints", () => {
+    const { container } = at("#/blueprints");
+    const link = container.querySelector('a[href^="#/prototype"]');
+    expect(link).toBeTruthy();
+    expect(link.textContent).toMatch(/prototype/i);
+  });
+
+  it("every prototype variant can get back to the app", () => {
+    for (const v of ["A", "B", "C"]) {
+      const { container } = at(`#/prototype/${v}`);
+      expect(container.querySelector('a[href="#/blueprints"]')).toBeTruthy();
+      cleanup();
+    }
+  });
+
+  it("reaches the add page and the task page from the day", () => {
+    const jdn = readNow().jdn;
+    const { container } = at(`#/day/${jdn}`);
+    // Every planned task links to its own detail page.
+    const task = container.querySelector('a.ev[href^="#/task/"]');
+    expect(task).toBeTruthy();
+    cleanup();
+    // And the add page is reachable by route.
+    expect(at(`#/day/${jdn}/add`).container.querySelector("#t")).toBeTruthy();
+  });
+});
+
+describe("blueprints do not look like the day page", () => {
+  it("uses a schedule strip, not a timeline", () => {
+    const { container } = at("#/blueprints");
+    // No 24-hour canvas, no hour ruler, no now-marker.
+    expect(container.querySelector(".tl-canvas")).toBeNull();
+    expect(container.querySelector(".tl-hour")).toBeNull();
+    expect(container.querySelector(".tl-nowdot")).toBeNull();
+    // Its own vocabulary instead.
+    expect(container.querySelectorAll(".sched .slot").length).toBe(5);
+  });
+
+  it("expands a pattern in place rather than navigating", () => {
+    const { container } = at("#/blueprints");
+    expect(container.querySelector(".pat-open")).toBeTruthy();
+    fireEvent.click(container.querySelector(".pat"));
+    expect(container.querySelector(".pat-open")).toBeNull();
+    expect(window.location.hash).toBe("#/blueprints");
+  });
+
+  it("sizes each slot bar by duration", () => {
+    const { container } = at("#/blueprints");
+    const bars = [...container.querySelectorAll(".slot")].map((s) => ({
+      name: s.querySelector(".slot-n").textContent,
+      w: Number(s.querySelector(".slot-bar").style.getPropertyValue("--w")),
+    }));
+    const by = Object.fromEntries(bars.map((b) => [b.name, b.w]));
+    expect(by.Sleep).toBeGreaterThan(by.Lunch);
+    expect(by.Lunch).toBeGreaterThan(by.Breakfast);
+    expect(by.Breakfast).toBeGreaterThan(by.Wake);
+  });
+
+  it("orders a blueprint from dawn, so wake comes first", () => {
+    const { container } = at("#/blueprints");
+    const names = [...container.querySelectorAll(".slot-n")].map((n) => n.textContent);
+    expect(names).toEqual(["Wake", "Breakfast", "Lunch", "Dinner", "Sleep"]);
   });
 });

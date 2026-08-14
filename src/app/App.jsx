@@ -12,8 +12,9 @@ import Icon from "./Icon.jsx";
 import Clock from "./Clock.jsx";
 import Timeline from "./Timeline.jsx";
 import Mark, { Time } from "./Mark.jsx";
-import { t12 } from "./format.js";
+import { t12, parts, parseEth, isNight, fromDawn } from "./format.js";
 import NavPrototype from "./prototype-nav.jsx";
+import Nav from "./Nav.jsx";
 import { useRoute, useTheme, useNowTick } from "./hooks.js";
 import { usePlanner, readNow, ruleIdOf } from "./store.js";
 import { EC_MONTHS, GC_MONTHS, DOW, ecMonthDays, dayFromJdn } from "../calendar.mjs";
@@ -22,7 +23,6 @@ import { patternsIn, categorise, colorOf, CATEGORY_COLORS, patternName } from ".
 import {
   STATUS,
   fmtDur,
-  parseTime,
   canCompleteAt,
   loggedLate,
   driftedFromPlan,
@@ -215,6 +215,7 @@ function BlueprintsPage({ planner, now, theme, onToggle, focus }) {
   );
 
   const [open, setOpen] = useState(focus ?? (patterns[0]?.id ?? null));
+  const [openCat, setOpenCat] = useState(null);
   const [newCat, setNewCat] = useState(false);
   const [catName, setCatName] = useState("");
   const [catColor, setCatColor] = useState("blue");
@@ -253,24 +254,27 @@ function BlueprintsPage({ planner, now, theme, onToggle, focus }) {
           </div>
 
           {shown ? (
-            <div className="glass-quiet panel tight" style={{ marginBottom: "var(--sp-5)" }}>
-              <div className="rows">
+            <div className="pat-open glass-quiet">
+              <div className="pat-open-head">
+                <span className="pat-open-name">{shown.name}</span>
+                <span className="dim">{shown.cadence}</span>
+              </div>
+              {/* A blueprint is a shape, so it reads as a schedule strip —
+                  deliberately unlike the day page, which is a timeline. */}
+              <div className="sched">
                 {shown.tasks
                   .slice()
-                  .sort((a, b) => (a.startMin ?? 0) - (b.startMin ?? 0))
+                  .sort((a, b) => fromDawn(a.startMin ?? 0) - fromDawn(b.startMin ?? 0))
                   .map((t) => (
-                    <a key={t.id} className="row" href={`#/task/${t.id}/${now.jdn}`}>
-                      <span className="grow">
-                        <div className="r-title" style={t.enabled === false ? { color: "var(--ink-3)" } : undefined}>
-                          {t.title}
-                        </div>
-                        <div className="r-sub">
-                          {t.enabled === false ? "Turned off" : <>
-                            <Time min={t.startMin} size={6} /> · {fmtDur(t.duration ?? 0)}
-                          </>}
-                        </div>
-                      </span>
-                      <Icon name="chevRight" size={15} className="dim" />
+                    <a
+                      key={t.id}
+                      className={`slot${t.enabled === false ? " off" : ""}`}
+                      href={`#/task/${t.id}/${now.jdn}`}
+                    >
+                      <span className="slot-t"><Time min={t.startMin} size={6} /></span>
+                      <span className="slot-bar" style={{ "--w": Math.min(100, (t.duration ?? 0) / 4.5) }} />
+                      <span className="slot-n">{t.title}</span>
+                      <span className="slot-d">{t.enabled === false ? "off" : fmtDur(t.duration ?? 0)}</span>
                     </a>
                   ))}
               </div>
@@ -345,12 +349,24 @@ function BlueprintsPage({ planner, now, theme, onToggle, focus }) {
         <div className="cat-list">
           {groups.map((c) => {
             const col = colorOf(c.color);
+            const expanded = openCat === c.id;
             return (
-              <div key={c.id} className="cat glass-quiet" style={{ "--h": col.hue }}>
+              <div
+                key={c.id}
+                className={`cat glass-quiet${expanded ? " open" : ""}`}
+                style={{ "--h": col.hue }}
+              >
                 <div className="cat-head">
-                  <span className="cat-dot" />
-                  <span className="cat-name">{c.name}</span>
-                  <span className="cat-count">{c.tasks.length}</span>
+                  <button
+                    className="cat-toggle"
+                    onClick={() => setOpenCat(expanded ? null : c.id)}
+                    aria-expanded={expanded}
+                  >
+                    <Icon name="chevRight" size={13} className="cat-chev" />
+                    <span className="cat-dot" />
+                    <span className="cat-name">{c.name}</span>
+                    <span className="cat-count">{c.tasks.length}</span>
+                  </button>
                   <span className="cat-tools">
                     {CATEGORY_COLORS.map((k) => (
                       <button
@@ -372,29 +388,34 @@ function BlueprintsPage({ planner, now, theme, onToggle, focus }) {
                     </button>
                   </span>
                 </div>
-                {c.tasks.length ? (
-                  <div className="rows">
-                    {c.tasks.map((t) => (
-                      <a key={t.id} className="row" href={`#/task/${t.id}/${now.jdn}`}>
-                        <span className="grow">
-                          <div className="r-title">{t.title}</div>
-                          <div className="r-sub">
-                            {t.rule ? patternName(t.rule) : "One-off"}
-                            {t.startMin != null ? <> · <Time min={t.startMin} size={6} /></> : null}
-                          </div>
-                        </span>
-                        <Icon name="chevRight" size={15} className="dim" />
-                      </a>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="cat-empty">Nothing here yet.</div>
-                )}
+                {expanded ? (
+                  c.tasks.length ? (
+                    <div className="sched">
+                      {c.tasks.map((t) => (
+                        <a key={t.id} className="slot" href={`#/task/${t.id}/${now.jdn}`}>
+                          <span className="slot-t"><Time min={t.startMin} size={6} /></span>
+                          <span className="slot-bar" style={{ "--w": Math.min(100, (t.duration ?? 0) / 4.5) }} />
+                          <span className="slot-n">{t.title}</span>
+                          <span className="slot-d">{t.rule ? patternName(t.rule) : "Once"}</span>
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="cat-empty">Nothing here yet.</div>
+                  )
+                ) : null}
               </div>
             );
           })}
         </div>
       )}
+
+      <div>
+        <a className="proto-link" href="#/prototype/A">
+          <Icon name="compass" size={13} />
+          Navigation prototype — 3 variants
+        </a>
+      </div>
 
       {loose.length && groups.length ? (
         <div className="cat glass-quiet" style={{ "--h": 220, marginTop: "var(--sp-3)" }}>
@@ -443,7 +464,8 @@ function TaskPage({ id, jdn, planner, now, theme, onToggle }) {
   const entry = planner.statusFor(task.id, dayJdn);
   const st = entry?.status ?? STATUS.UNKNOWN;
   const bpId = task.rule ? ruleIdOf(task.rule) : null;
-  const actualMin = atText != null ? parseTime(atText) : (entry?.actualMin ?? task.startMin);
+  const fallback = entry?.actualMin ?? task.startMin;
+  const actualMin = atText != null ? parseEth(atText, isNight(fallback)) : fallback;
   const check = canCompleteAt({ dayJdn, actualMin: actualMin ?? task.startMin }, now);
 
   const setStatus = (status) =>
@@ -513,7 +535,7 @@ function TaskPage({ id, jdn, planner, now, theme, onToggle }) {
               placeholder="h:mm"
               inputMode="numeric"
             />
-            <Mark pm={(actualMin ?? task.startMin ?? 0) >= 720} size={9} />
+            <Mark night={isNight(actualMin ?? task.startMin ?? 0)} size={9} />
           </div>
         </div>
 
@@ -603,19 +625,15 @@ function TaskPage({ id, jdn, planner, now, theme, onToggle }) {
 function AddPage({ jdn, planner, now, theme, onToggle }) {
   const day = dayFromJdn(jdn);
   const [title, setTitle] = useState("");
-  const [start, setStart] = useState("9:00");
-  const [pm, setPm] = useState(false);
+  const [start, setStart] = useState("2:00");
+  const [night, setNight] = useState(false);
   const [dur, setDur] = useState("30");
   const [freq, setFreq] = useState("once");
   const [place, setPlace] = useState("");
   const [categoryId, setCategoryId] = useState(null);
 
   const compound = /\s(&|and|\+)\s/i.test(title);
-  const raw = parseTime(start.includes(":") ? start : `${start}:00`);
-  const startMin = raw == null ? null : (() => {
-    const h = Math.floor(raw / 60) % 12;
-    return (pm ? h + 12 : h) * 60 + (raw % 60);
-  })();
+  const startMin = parseEth(start, night);
   const valid = title.trim() && startMin != null && Number(dur) > 0 && !compound;
 
   const submit = (e) => {
@@ -662,15 +680,15 @@ function AddPage({ jdn, planner, now, theme, onToggle }) {
             <label htmlFor="s">Starts</label>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input id="s" className="input" style={{ maxWidth: 100 }} value={start}
-                onChange={(e) => setStart(e.target.value)} placeholder="9:00" inputMode="numeric" />
+                onChange={(e) => setStart(e.target.value)} placeholder="2:00" inputMode="numeric" />
               <div className="seg">
-                <button type="button" className={!pm ? "on" : ""} onClick={() => setPm(false)}
-                  aria-label="morning" title="morning">
-                  <Mark pm={false} size={9} />
+                <button type="button" className={!night ? "on" : ""} onClick={() => setNight(false)}
+                  aria-label="day" title="day">
+                  <Mark night={false} size={9} />
                 </button>
-                <button type="button" className={pm ? "on" : ""} onClick={() => setPm(true)}
-                  aria-label="afternoon" title="afternoon">
-                  <Mark pm size={9} />
+                <button type="button" className={night ? "on" : ""} onClick={() => setNight(true)}
+                  aria-label="night" title="night">
+                  <Mark night size={9} />
                 </button>
               </div>
             </div>
@@ -774,7 +792,12 @@ export default function App() {
       page = <DayPage jdn={now.jdn} {...common} />;
   }
 
-  return <div className="shell">{page}</div>;
+  return (
+    <div className="shell">
+      {page}
+      <Nav here={window.location.hash || "#/"} />
+    </div>
+  );
 }
 
 export { DayPage, CalendarPage, BlueprintsPage, TaskPage, AddPage, Top };
