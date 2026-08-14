@@ -1,734 +1,604 @@
 <!doctype html>
-<html lang="en">
+<html lang="am">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Planner — Day</title>
+<title>እቅድ</title>
 <style>
 :root{
-  --ink:#12151c;--muted:#697182;--faint:#9aa2b1;--line:#e5e8ee;--bg:#f6f7f9;--panel:#fff;
-  --accent:#3d5afe;--soft:#eef1ff;--ok:#2f7a55;--oksoft:#e9f5ee;--warn:#b4531f;
-  --warnsoft:#fdf0e8;--rest:#f2f4f7;--travel:#fff8e6;--travelink:#8a6d1f;--r:9px;
+  --ink:#16181d;--body:#4a4f5a;--muted:#7b8290;--faint:#a8aeba;
+  --line:#e8eaef;--hair:#f1f3f6;--bg:#faf9f7;--panel:#fff;
+  --accent:#1f6f5c;--accent-2:#2d8a73;--soft:#eaf4f1;--ring:#cde5dd;
+  --gold:#a8813a;--goldsoft:#faf3e6;--rose:#a44a3f;--rosesoft:#fbeeec;
+  --r:14px;--rs:10px;
+  --sh:0 1px 2px rgba(20,25,35,.04),0 4px 14px rgba(20,25,35,.05);
 }
 *{box-sizing:border-box}
-body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
-  color:var(--ink);background:var(--bg)}
-button{font:inherit;cursor:pointer}
-input,select,textarea{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
-input:focus,select:focus{outline:2px solid var(--soft);border-color:var(--accent)}
+html,body{margin:0;padding:0}
+body{
+  font:16px/1.65 "Noto Sans Ethiopic","Nyala",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;
+}
+button{font:inherit;cursor:pointer;color:inherit}
+input,select{font:inherit;padding:11px 13px;border:1px solid var(--line);border-radius:var(--rs);
+  background:#fff;color:var(--ink);width:100%}
+input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+::placeholder{color:var(--faint)}
 
-.top{background:var(--panel);border-bottom:1px solid var(--line);padding:0 20px;display:flex;
-  align-items:center;gap:6px;position:sticky;top:0;z-index:30}
-.brand{font-weight:700;letter-spacing:-.02em;margin-right:14px}
-.nav{padding:14px 14px;border:none;background:none;color:var(--muted);font-size:14px;
-  border-bottom:2px solid transparent;margin-bottom:-1px}
-.nav.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
-.clock{margin-left:auto;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;
-  display:flex;align-items:center;gap:8px}
-.clock input{padding:4px 7px;width:76px;font-size:13px}
-.wrap{max-width:1120px;margin:0 auto;padding:20px}
-.hd{display:flex;align-items:flex-start;gap:14px;margin-bottom:4px;flex-wrap:wrap}
-h1{font-size:21px;margin:0;letter-spacing:-.02em}
-.dual{font-size:13px;color:var(--muted);margin:2px 0 0}
-.dual b{color:var(--ink)}
-.hol{display:inline-block;background:var(--warnsoft);color:var(--warn);font-size:11px;
-  padding:2px 8px;border-radius:99px;margin-left:6px;border:1px solid #f2d9c8}
-.sub{color:var(--faint);font-size:13px;margin:8px 0 18px}
-.grid{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start}
-@media(max-width:900px){.grid{grid-template-columns:1fr}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-.card h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);
-  margin:0;padding:12px 14px;border-bottom:1px solid var(--line);display:flex;
-  align-items:center;gap:8px}
-.card h3 .r{margin-left:auto;text-transform:none;letter-spacing:0;font-size:12px;color:var(--muted)}
-.pad{padding:14px}
+.page{max-width:660px;margin:0 auto;padding:28px 20px 120px}
 
-/* now strip */
-.strip{display:flex;flex-direction:column}
-.slot{display:flex;gap:11px;padding:11px 14px;border-bottom:1px solid #f1f3f7;align-items:flex-start}
+/* ── breadcrumb / interlinked nav ── */
+.crumb{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--muted);
+  margin-bottom:20px;flex-wrap:wrap}
+.crumb a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;cursor:pointer}
+.crumb a:hover{border-bottom-color:var(--accent)}
+.crumb .sep{color:var(--faint)}
+
+h1{font-size:27px;margin:0;letter-spacing:-.01em;font-weight:700;line-height:1.25}
+.sub{color:var(--muted);font-size:14.5px;margin:5px 0 0}
+.hero{margin-bottom:24px}
+
+/* ── the day rail ── */
+.rail{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  overflow:hidden;box-shadow:var(--sh)}
+.slot{display:flex;gap:13px;padding:14px 16px;border-bottom:1px solid var(--hair);align-items:flex-start}
 .slot:last-child{border-bottom:none}
-.slot.past{opacity:.58}
-.slot.current{background:var(--soft);border-left:3px solid var(--accent);padding-left:11px}
-.slot .t{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted);width:44px;flex-shrink:0;padding-top:2px}
-.slot .body{flex:1;min-width:0}
-.slot .ttl{font-size:14px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.slot .ttl.done{text-decoration:line-through;color:var(--faint)}
-.slot .meta{font-size:12px;color:var(--faint);margin-top:2px}
-.acts{display:flex;gap:5px;flex-shrink:0}
-.mini{border:1px solid var(--line);background:#fff;border-radius:6px;padding:3px 9px;font-size:12px;color:var(--muted)}
-.mini:hover{border-color:var(--accent);color:var(--accent)}
-.mini.on-done{background:var(--oksoft);border-color:#bfe0cd;color:var(--ok);font-weight:600}
-.mini.on-skip{background:var(--rest);border-color:var(--line);color:var(--muted);font-weight:600}
-.mini:disabled{opacity:.35;cursor:not-allowed}
-.mini:disabled:hover{border-color:var(--line);color:var(--muted)}
-.gap{display:flex;gap:11px;padding:7px 14px;font-size:12px;color:var(--faint);
-  background:var(--rest);border-bottom:1px solid #f1f3f7;align-items:center}
-.gap .t{width:44px;flex-shrink:0;font-variant-numeric:tabular-nums}
-.gap.travel{background:var(--travel);color:var(--travelink)}
-.gap.overlap{background:var(--warnsoft);color:var(--warn)}
-.badge{font-size:10px;padding:1px 6px;border-radius:99px;background:var(--rest);
-  color:var(--muted);border:1px solid var(--line);text-transform:uppercase;letter-spacing:.04em}
-.badge.bp{background:var(--soft);color:var(--accent);border-color:#d7ddff}
-.badge.unp{background:var(--warnsoft);color:var(--warn);border-color:#f2d9c8}
-.badge.unk{background:#fff;color:var(--faint)}
+.slot.past{background:#fcfcfb}
+.slot.past .name{color:var(--body)}
+.slot.now{background:var(--soft);box-shadow:inset 3px 0 0 var(--accent)}
+.tcol{width:52px;flex-shrink:0;padding-top:1px}
+.tp{font-variant-numeric:tabular-nums;font-size:14px;color:var(--body);font-weight:600;letter-spacing:-.01em}
+.ta{font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--accent);margin-top:1px}
+.mid{flex:1;min-width:0}
+.name{font-size:16px;line-height:1.4;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.name.done{color:var(--faint);text-decoration:line-through;text-decoration-thickness:1px}
+.name.skip{color:var(--faint)}
+.det{font-size:13px;color:var(--muted);margin-top:3px;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.det .dot{color:var(--faint)}
+.logged{font-size:12px;color:var(--faint);margin-top:3px}
+
+.chip{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);
+  background:#fff;color:var(--muted);white-space:nowrap;line-height:1.6}
+.chip.def{background:var(--soft);color:var(--accent);border-color:var(--ring)}
+.chip.unp{background:var(--goldsoft);color:var(--gold);border-color:#eddfc2}
+.chip.mv{background:var(--rosesoft);color:var(--rose);border-color:#f0d5d1}
+.chip.off{background:var(--hair);color:var(--faint)}
+
+.acts{display:flex;gap:6px;flex-shrink:0;align-items:center}
+.b{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;
+  font-size:13px;color:var(--body);transition:.12s}
+.b:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.b:disabled{opacity:.32;cursor:not-allowed}
+.b.yes{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.b.no{background:var(--hair);border-color:var(--line);color:var(--body);font-weight:600}
+.b.icon{padding:6px 10px}
+
+/* gaps */
+.gap{display:flex;gap:13px;padding:9px 16px;font-size:13px;color:var(--faint);
+  background:#fcfcfb;border-bottom:1px solid var(--hair);align-items:center}
+.gap .tcol{font-variant-numeric:tabular-nums;font-size:12px}
+.gap.travel{background:var(--goldsoft);color:var(--gold)}
+.gap.overlap{background:var(--rosesoft);color:var(--rose)}
 
 /* quick add */
-.qa{display:flex;gap:6px;flex-wrap:wrap}
-.qa input[type=text]{flex:1;min-width:130px}
-.qa input[type=time]{width:96px}
-.qa input[type=number]{width:66px}
-.go{background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:6px;padding:7px 14px}
-.more{background:none;border:none;color:var(--accent);font-size:12px;padding:6px 0;text-align:left}
-.det{display:none;gap:6px;flex-wrap:wrap;margin-top:8px}
-.det.show{display:flex}
+.qa{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:16px;margin-top:18px;box-shadow:var(--sh)}
+.qarow{display:flex;gap:9px}
+.qarow input[type=text]{flex:1}
+.qarow .b.yes{padding:11px 20px;border-radius:var(--rs)}
+.expand{background:none;border:none;color:var(--accent);font-size:13.5px;padding:10px 0 0;
+  display:block;text-align:right;width:100%}
+.more{display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--hair);
+  grid-template-columns:1fr 1fr;gap:10px}
+.more.open{display:grid}
+.more .full{grid-column:1/-1}
+.lbl{font-size:12px;color:var(--muted);margin-bottom:5px;display:block}
+
+/* link cards */
+.links{display:grid;gap:10px;margin-top:22px}
+.lk{display:flex;align-items:center;gap:13px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--r);padding:15px 17px;text-align:right;width:100%;box-shadow:var(--sh);transition:.14s}
+.lk:hover{border-color:var(--accent);transform:translateY(-1px)}
+.lk .ic{width:38px;height:38px;border-radius:11px;background:var(--soft);display:grid;
+  place-items:center;flex-shrink:0;font-size:18px}
+.lk .lt{flex:1}
+.lk .lt b{display:block;font-size:15.5px;font-weight:600}
+.lk .lt span{font-size:13px;color:var(--muted)}
+.lk .ar{color:var(--faint);font-size:19px}
 
 /* calendar */
-.calhd{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
-.calhd .nm{font-weight:600;font-size:14px;flex:1}
-.calhd .nm span{display:block;font-size:11px;color:var(--faint);font-weight:400}
-.arrow{border:1px solid var(--line);background:#fff;border-radius:6px;width:26px;height:26px;
-  display:grid;place-items:center;color:var(--muted)}
-.arrow:hover{border-color:var(--accent);color:var(--accent)}
-.dows{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:8px 8px 0}
-.dows div{text-align:center;font-size:10px;color:var(--faint);padding-bottom:4px}
-.days{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:0 8px 10px}
-.day{aspect-ratio:1;border:1px solid transparent;border-radius:6px;background:none;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
-  padding:2px;position:relative}
-.day:hover{background:var(--bg)}
-.day .n{font-size:13px;font-variant-numeric:tabular-nums;line-height:1}
-.day .alt{font-size:9px;color:var(--faint);line-height:1}
-.day.sel{background:var(--accent);color:#fff}
-.day.sel .alt{color:#c6cfff}
-.day.today{border-color:var(--accent)}
-.day.wknd .n{color:var(--warn)}
-.day.sel.wknd .n{color:#fff}
-.day.hol::after{content:"";position:absolute;top:3px;right:3px;width:4px;height:4px;
-  border-radius:50%;background:var(--warn)}
-.day .dot{width:14px;height:2px;border-radius:2px;background:var(--accent);opacity:.4}
-.day.sel .dot{background:#fff;opacity:.8}
-.swapcal{padding:8px 14px;border-top:1px solid var(--line);display:flex;gap:6px;align-items:center}
-.swapcal button{flex:1;border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px;font-size:12px;color:var(--muted)}
-.swapcal button.on{background:var(--soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+.cal{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  overflow:hidden;box-shadow:var(--sh)}
+.calhd{display:flex;align-items:center;gap:10px;padding:16px}
+.calhd .mo{flex:1;text-align:center}
+.calhd .mo b{display:block;font-size:17px;font-weight:700}
+.calhd .mo span{font-size:12.5px;color:var(--muted)}
+.nav{width:34px;height:34px;border:1px solid var(--line);border-radius:9px;background:#fff;
+  display:grid;place-items:center;color:var(--body);flex-shrink:0}
+.nav:hover{border-color:var(--accent);color:var(--accent)}
+.dows{display:grid;grid-template-columns:repeat(7,1fr);padding:0 10px 6px}
+.dows div{text-align:center;font-size:11px;color:var(--faint);font-weight:600}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:0 10px 14px}
+.cell{aspect-ratio:1;border:1px solid transparent;border-radius:10px;background:none;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;position:relative;padding:0}
+.cell:hover{background:var(--hair)}
+.cell .p{font-size:15px;font-variant-numeric:tabular-nums;line-height:1.15;font-weight:600}
+.cell .s{font-size:9.5px;color:var(--faint);line-height:1.1;font-variant-numeric:tabular-nums}
+.cell.wknd .p{color:var(--rose)}
+.cell.today{border-color:var(--accent)}
+.cell.sel{background:var(--accent)}
+.cell.sel .p,.cell.sel .s{color:#fff}
+.cell.sel.wknd .p{color:#fff}
+.cell.hol::after{content:"";position:absolute;top:5px;left:5px;width:5px;height:5px;
+  border-radius:50%;background:var(--gold)}
+.callg{display:flex;gap:14px;padding:12px 16px;border-top:1px solid var(--hair);
+  font-size:12px;color:var(--muted);flex-wrap:wrap}
+.callg i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:5px;background:var(--gold)}
 
-/* blueprint */
-.bpitem{padding:10px 14px;border-bottom:1px solid #f1f3f7;display:flex;gap:9px;align-items:flex-start}
-.bpitem:last-child{border-bottom:none}
-.bpitem .w{flex:1}
-.bprule{font-size:11px;color:var(--accent);background:var(--soft);padding:1px 7px;
-  border-radius:99px;display:inline-block;margin-top:3px;border:1px solid #d7ddff}
-.kinds{display:flex;flex-wrap:wrap;gap:5px;padding:10px 14px;border-bottom:1px solid var(--line)}
-.kinds button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:4px 11px;
-  font-size:12px;color:var(--muted)}
-.kinds button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+/* blueprint index */
+.bp{display:grid;gap:10px}
+.bpr{display:flex;align-items:center;gap:13px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--r);padding:15px 17px;width:100%;text-align:right;box-shadow:var(--sh);transition:.14s}
+.bpr:hover{border-color:var(--accent);transform:translateY(-1px)}
+.bpr .n{flex:1}
+.bpr .n b{display:block;font-size:15.5px;font-weight:600}
+.bpr .n span{font-size:13px;color:var(--muted)}
+.bpr .c{font-size:13px;color:var(--accent);background:var(--soft);padding:3px 11px;
+  border-radius:99px;border:1px solid var(--ring);font-variant-numeric:tabular-nums}
+.bpr .c.zero{background:var(--hair);color:var(--faint);border-color:var(--line)}
 
-/* stats */
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:1px;background:var(--line)}
-.stat{background:var(--panel);padding:11px 12px}
-.stat .k{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
-.stat .v{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.stat .v.ok{color:var(--ok)} .stat .v.un{color:var(--faint)} .stat .v.wa{color:var(--warn)}
-.bars{display:flex;align-items:flex-end;gap:3px;height:96px;padding:14px}
-.bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;height:100%}
-.bseg{width:100%;border-radius:2px}
-.bseg.d{background:var(--ok)} .bseg.s{background:#c8cedb} .bseg.u{background:#eef0f4}
-.blab{font-size:9px;color:var(--faint);text-align:center;margin-top:3px}
-.lg{display:flex;gap:12px;padding:0 14px 12px;font-size:11px;color:var(--muted);flex-wrap:wrap}
-.lg i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:4px}
-.hbars{padding:12px 14px;display:flex;flex-direction:column;gap:7px}
-.hb{display:flex;align-items:center;gap:8px;font-size:12px}
-.hb .hl{width:88px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hb .ht{flex:1;height:14px;background:var(--rest);border-radius:3px;overflow:hidden}
-.hb .hf{height:100%;background:var(--accent);opacity:.75}
-.hb .hv{width:34px;text-align:right;color:var(--faint);font-variant-numeric:tabular-nums}
-.empty{padding:22px 14px;text-align:center;color:var(--faint);font-size:13px}
-.note{font-size:12px;color:var(--muted);background:var(--soft);border:1px solid #d7ddff;
-  border-radius:6px;padding:9px 11px;margin:0 14px 12px}
-dialog{border:none;border-radius:12px;padding:0;box-shadow:0 20px 60px rgba(0,0,0,.28);max-width:420px;width:92vw}
-dialog::backdrop{background:rgba(10,14,25,.42)}
-.dlg{padding:18px}
-.dlg h4{margin:0 0 4px;font-size:16px}
-.dlg p{margin:0 0 14px;font-size:13px;color:var(--muted)}
-.dlgrow{display:flex;gap:6px;margin-bottom:9px;align-items:center}
-.dlgrow label{font-size:12px;color:var(--muted);width:78px}
-.dlgrow input,.dlgrow select{flex:1}
-.dlgacts{display:flex;gap:7px;justify-content:flex-end;margin-top:14px}
-.ghost{background:none;border:1px solid var(--line);border-radius:6px;padding:7px 14px;color:var(--muted)}
+.hint{font-size:13.5px;color:var(--muted);background:var(--soft);border:1px solid var(--ring);
+  border-radius:var(--rs);padding:12px 14px;margin-top:16px;line-height:1.6}
+.empty{padding:34px 20px;text-align:center;color:var(--faint);font-size:14.5px}
+
+/* clock */
+.clock{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#16181d;
+  color:#fff;border-radius:99px;padding:8px 10px 8px 16px;display:flex;align-items:center;gap:10px;
+  box-shadow:0 10px 32px rgba(0,0,0,.26);z-index:50;font-size:13.5px}
+.clock span{color:#9aa3b2}
+.clock input{width:78px;background:#262a33;border:1px solid #363b47;color:#fff;
+  padding:5px 9px;border-radius:99px;font-size:13px;text-align:center}
+.clock input:focus{border-color:var(--accent-2);box-shadow:none}
+
+dialog{border:none;border-radius:18px;padding:0;box-shadow:0 24px 70px rgba(0,0,0,.3);
+  max-width:400px;width:92vw;background:var(--panel)}
+dialog::backdrop{background:rgba(16,20,28,.5)}
+.dlg{padding:22px}
+.dlg h4{margin:0 0 6px;font-size:18px}
+.dlg p{margin:0 0 18px;font-size:14px;color:var(--muted);line-height:1.6}
+.frow{margin-bottom:12px}
+.dacts{display:flex;gap:9px;justify-content:flex-start;margin-top:20px}
+.ghost{background:#fff;border:1px solid var(--line);border-radius:var(--rs);padding:11px 18px;color:var(--body)}
+.solid{background:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);
+  padding:11px 20px;color:#fff;font-weight:600}
 </style>
 </head>
 <body>
-
-<div class="top">
-  <span class="brand">Planner</span>
-  <button class="nav on" data-tab="today">Today</button>
-  <button class="nav" data-tab="calendar">Calendar</button>
-  <button class="nav" data-tab="blueprint">Blueprint</button>
-  <button class="nav" data-tab="insights">Insights</button>
-  <span class="clock">
-    now <input type="time" id="nowt" value="14:00" title="Simulated clock — proves the honesty rule" />
-  </span>
-</div>
-
-<div class="wrap" id="app"></div>
-
-<dialog id="dlg"><div class="dlg" id="dlgbody"></div></dialog>
+<div class="page" id="app"></div>
+<div class="clock"><span>አሁን</span><input type="time" id="nowt" value="14:00" /></div>
+<dialog id="dlg"><div class="dlg" id="dbody"></div></dialog>
 
 <script type="module">
-// ─── calendar core (mirrors src/calendar.mjs) ───────────────────────────────
-const EC_MONTHS=["Meskerem","Tikimt","Hidar","Tahsas","Tir","Yekatit","Megabit","Miyazia","Ginbot","Sene","Hamle","Nehase","Pagume"];
-const GC_MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
-const DOW=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-const DOW3=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-const EC_EPOCH=1724220;
-const isEcLeapYear=y=>((y%4)+4)%4===3;
-const ecMonthLength=(y,m)=>m===13?(isEcLeapYear(y)?6:5):30;
-const gcToJdn=(y,m,d)=>{const a=Math.floor((14-m)/12),yy=y+4800-a,mm=m+12*a-3;
-  return d+Math.floor((153*mm+2)/5)+365*yy+Math.floor(yy/4)-Math.floor(yy/100)+Math.floor(yy/400)-32045;};
-const jdnToGc=j=>{const a=j+32044,b=Math.floor((4*a+3)/146097),c=a-Math.floor(146097*b/4),
-  d2=Math.floor((4*c+3)/1461),e=c-Math.floor(1461*d2/4),m=Math.floor((5*e+2)/153);
-  return{y:100*b+d2-4800+Math.floor(m/10),m:m+3-12*Math.floor(m/10),d:e-Math.floor((153*m+2)/5)+1};};
-const ecToJdn=(y,m,d)=>EC_EPOCH+365*(y-1)+Math.floor(y/4)+30*(m-1)+d;
-const jdnToEc=j=>{let y=Math.floor((j-EC_EPOCH-1)/365.25)+1;
-  while(ecToJdn(y+1,1,1)<=j)y++; while(ecToJdn(y,1,1)>j)y--;
-  const doy=j-ecToJdn(y,1,1); return{y,m:Math.floor(doy/30)+1,d:doy%30+1};};
-const EC_HOL=[{m:1,d:1,name:"Enkutatash"},{m:1,d:17,name:"Meskel"},{m:4,d:29,name:"Genna"},
-  {m:5,d:11,name:"Timkat"},{m:6,d:23,name:"Adwa Victory Day"},{m:8,d:23,name:"Labour Day"},
-  {m:8,d:27,name:"Patriots' Day"}];
-const GC_HOL=[{m:1,d:1,name:"New Year's Day"},{m:12,d:25,name:"Christmas Day"}];
-const iso=({y,m,d})=>`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+// ═══ calendar core (mirrors src/calendar.mjs) ═══
+const EC_M=["መስከረም","ጥቅምት","ኅዳር","ታኅሣሥ","ጥር","የካቲት","መጋቢት","ሚያዝያ","ግንቦት","ሰኔ","ሐምሌ","ነሐሴ","ጳጉሜን"];
+const GC_M=["ጃንዩወሪ","ፌብሩወሪ","ማርች","ኤፕሪል","ሜይ","ጁን","ጁላይ","ኦገስት","ሴፕቴምበር","ኦክቶበር","ኖቬምበር","ዲሴምበር"];
+const DOW=["እሑድ","ሰኞ","ማክሰኞ","ረቡዕ","ሐሙስ","ዓርብ","ቅዳሜ"];
+const DOW2=["እሑ","ሰኞ","ማክ","ረቡ","ሐሙ","ዓር","ቅዳ"];
+const EPOCH=1724220;
+const ecLeap=y=>((y%4)+4)%4===3;
+const ecLen=(y,m)=>m===13?(ecLeap(y)?6:5):30;
+const g2j=(y,m,d)=>{const a=Math.floor((14-m)/12),yy=y+4800-a,mm=m+12*a-3;
+  return d+Math.floor((153*mm+2)/5)+365*yy+Math.floor(yy/4)-Math.floor(yy/100)+Math.floor(yy/400)-32045};
+const j2g=j=>{const a=j+32044,b=Math.floor((4*a+3)/146097),c=a-Math.floor(146097*b/4),
+  d=Math.floor((4*c+3)/1461),e=c-Math.floor(1461*d/4),m=Math.floor((5*e+2)/153);
+  return{y:100*b+d-4800+Math.floor(m/10),m:m+3-12*Math.floor(m/10),d:e-Math.floor((153*m+2)/5)+1}};
+const e2j=(y,m,d)=>EPOCH+365*(y-1)+Math.floor(y/4)+30*(m-1)+d;
+const j2e=j=>{let y=Math.floor((j-EPOCH-1)/365.25)+1;
+  while(e2j(y+1,1,1)<=j)y++;while(e2j(y,1,1)>j)y--;
+  const n=j-e2j(y,1,1);return{y,m:Math.floor(n/30)+1,d:n%30+1}};
+const EC_H=[{m:1,d:1,n:"እንቁጣጣሽ"},{m:1,d:17,n:"መስቀል"},{m:4,d:29,n:"ገና"},{m:5,d:11,n:"ጥምቀት"},
+  {m:6,d:23,n:"ዓድዋ"},{m:8,d:23,n:"የሠራተኞች ቀን"},{m:8,d:27,n:"የአርበኞች ቀን"}];
+const GC_H=[{m:1,d:1,n:"አዲስ ዓመት (ግሪጎሪ)"},{m:12,d:25,n:"ገና (ግሪጎሪ)"}];
 const EXTRA={};
-const dayFromJdn=j=>{const gc=jdnToGc(j),ec=jdnToEc(j),i=iso(gc);
-  const holidays=[...EC_HOL.filter(h=>h.m===ec.m&&h.d===ec.d).map(h=>h.name),
-    ...GC_HOL.filter(h=>h.m===gc.m&&h.d===gc.d).map(h=>h.name),...(EXTRA[i]??[])];
-  const dow=(j+1)%7;
-  return{jdn:j,iso:i,gc,ec,ecMonthName:EC_MONTHS[ec.m-1],gcMonthName:GC_MONTHS[gc.m-1],
-    dow,dowName:DOW[dow],isWeekend:dow===0||dow===6,holidays};};
-const dayFromGc=(y,m,d)=>dayFromJdn(gcToJdn(y,m,d));
-const dayFromEc=(y,m,d)=>dayFromJdn(ecToJdn(y,m,d));
-const isGcLeap=y=>(y%4===0&&y%100!==0)||y%400===0;
-const gcMonthLength=(y,m)=>[31,isGcLeap(y)?29:28,31,30,31,30,31,31,30,31,30,31][m-1];
+const iso=({y,m,d})=>`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+const day=j=>{const gc=j2g(j),ec=j2e(j),i=iso(gc);
+  const hol=[...EC_H.filter(h=>h.m===ec.m&&h.d===ec.d).map(h=>h.n),
+    ...GC_H.filter(h=>h.m===gc.m&&h.d===gc.d).map(h=>h.n),...(EXTRA[i]??[])];
+  const dw=(j+1)%7;
+  return{jdn:j,iso:i,gc,ec,ecM:EC_M[ec.m-1],gcM:GC_M[gc.m-1],dow:dw,dowN:DOW[dw],
+    wknd:dw===0||dw===6,hol}};
+const dayG=(y,m,d)=>day(g2j(y,m,d));
+const dayE=(y,m,d)=>day(e2j(y,m,d));
 
-// ─── blueprint (mirrors src/blueprint.mjs) ──────────────────────────────────
-const firesOn=(r,d)=>{switch(r.kind){
-  case"everyday":return true; case"weekday":return !d.isWeekend; case"weekend":return d.isWeekend;
-  case"dow":return d.dow===r.dow; case"gc-monthday":return d.gc.d===r.day;
+// ═══ blueprint (mirrors src/blueprint.mjs) ═══
+const fires=(r,d)=>{if(!r)return false;switch(r.kind){
+  case"everyday":return true;case"weekday":return !d.wknd;case"weekend":return d.wknd;
+  case"dow":return d.dow===r.dow;case"gc-monthday":return d.gc.d===r.day;
   case"ec-monthday":return d.ec.d===r.day;
-  case"holiday":return r.name?d.holidays.includes(r.name):d.holidays.length>0;
-  case"dates":return r.dates.includes(d.iso); default:return false;}};
-const describeRule=r=>{if(!r)return"One-off";switch(r.kind){
-  case"everyday":return"Every day"; case"weekday":return"Every weekday"; case"weekend":return"Every weekend";
-  case"dow":return"Every "+DOW[r.dow]; case"gc-monthday":return`Day ${r.day} of each GC month`;
-  case"ec-monthday":return`Day ${r.day} of each EC month`;
-  case"holiday":return r.name?"Every "+r.name:"Every holiday";
-  case"dates":return `${r.dates.length} set date(s)`; default:return"—";}};
-const ruleFromFrequency=(f,d)=>({daily:{kind:"everyday"},weekly:{kind:"dow",dow:d.dow},
-  monthly:{kind:"gc-monthday",day:d.gc.d},"ec-monthly":{kind:"ec-monthday",day:d.ec.d},
-  weekday:{kind:"weekday"},weekend:{kind:"weekend"},once:null})[f]??null;
+  case"holiday":return r.name?d.hol.includes(r.name):d.hol.length>0;
+  case"dates":return r.dates.includes(d.iso);default:return false}};
+const RULES=[
+  {id:"everyday",label:"በየቀኑ",desc:"ሁሉም ቀን",rule:{kind:"everyday"}},
+  {id:"weekday",label:"የሥራ ቀናት",desc:"ሰኞ – ዓርብ",rule:{kind:"weekday"}},
+  {id:"weekend",label:"ቅዳሜና እሑድ",desc:"ሳምንቱ መጨረሻ",rule:{kind:"weekend"}},
+  {id:"dow0",label:"በየእሑድ",desc:"በየሳምንቱ እሑድ",rule:{kind:"dow",dow:0}},
+  {id:"dow1",label:"በየሰኞ",desc:"በየሳምንቱ ሰኞ",rule:{kind:"dow",dow:1}},
+  {id:"dow5",label:"በየዓርብ",desc:"በየሳምንቱ ዓርብ",rule:{kind:"dow",dow:5}},
+  {id:"ec1",label:"በየወሩ 1",desc:"የኢትዮጵያ ወር መጀመሪያ",rule:{kind:"ec-monthday",day:1}},
+  {id:"gc1",label:"በየወሩ 1 (ግሪጎሪ)",desc:"የግሪጎሪ ወር መጀመሪያ",rule:{kind:"gc-monthday",day:1}},
+  {id:"holiday",label:"በዓላት",desc:"ሁሉም በዓል",rule:{kind:"holiday"}},
+];
+const ruleFromFreq=(f,d)=>({once:null,everyday:{kind:"everyday"},weekday:{kind:"weekday"},
+  weekend:{kind:"weekend"},weekly:{kind:"dow",dow:d.dow},
+  ecmonth:{kind:"ec-monthday",day:d.ec.d},gcmonth:{kind:"gc-monthday",day:d.gc.d},
+  holiday:{kind:"holiday"}})[f]??null;
+const ruleLabel=r=>{if(!r)return"አንድ ጊዜ";
+  const m=RULES.find(x=>JSON.stringify(x.rule)===JSON.stringify(r));
+  if(m)return m.label;
+  switch(r.kind){case"dow":return"በየ"+DOW[r.dow];
+    case"ec-monthday":return`በየወሩ ${r.day}`;case"gc-monthday":return`በየወሩ ${r.day} (ግሪጎሪ)`;
+    default:return"ልማድ"}};
 
-// ─── log (mirrors src/log.mjs) ──────────────────────────────────────────────
-const STATUS={UNKNOWN:"unknown",DONE:"done",SKIPPED:"skipped",RESCHEDULED:"rescheduled"};
-const fmtTime=m=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
-const parseTime=s=>{const m=/^(\d{1,2}):(\d{2})$/.exec(String(s).trim());if(!m)return null;
-  const h=+m[1],mi=+m[2];return h>23||mi>59?null:h*60+mi;};
-const canCompleteAt=({dayJdn,atMin},now)=>{
-  if(dayJdn>now.jdn)return{ok:false,reason:"That day hasn't happened yet."};
-  if(dayJdn===now.jdn&&atMin>now.minutes)
-    return{ok:false,reason:`It's only ${fmtTime(now.minutes)} — you can't log something at ${fmtTime(atMin)} yet.`};
-  return{ok:true};};
-const statusOf=(es,taskId,jdn)=>{const f=es.filter(e=>e.taskId===taskId&&e.dayJdn===jdn);
-  return f.length?f[f.length-1]:null;};
+// ═══ log (mirrors src/log.mjs) ═══
+const ST={UNKNOWN:"unknown",DONE:"done",SKIPPED:"skipped",RESCHEDULED:"rescheduled"};
+const fmtT=m=>m==null?"—":`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+const fmtD=m=>m==null?"—":m<60?`${m}ደ`:`${Number.isInteger(m/60)?m/60:(m/60).toFixed(1)}ሰ`;
+const parseT=s=>{const m=/^(\d{1,2}):(\d{2})$/.exec(String(s).trim());
+  if(!m)return null;const h=+m[1],i=+m[2];return h>23||i>59?null:h*60+i};
+const canDo=({dayJdn,actualMin},now)=>{
+  if(dayJdn>now.jdn)return{ok:false,why:"ያ ቀን ገና አልደረሰም።"};
+  if(dayJdn===now.jdn&&actualMin!=null&&actualMin>now.minutes)
+    return{ok:false,why:`አሁን ${fmtT(now.minutes)} ነው። ${fmtT(actualMin)} ላይ የተደረገ ነገር ገና መመዝገብ አይቻልም።`};
+  return{ok:true}};
 const GAP={REST:"rest",TRAVEL:"travel"};
-const timelineWithGaps=(tasks,{dayStartMin=360,dayEndMin=1380}={})=>{
-  const placed=tasks.filter(t=>t.startMin!=null).sort((a,b)=>a.startMin-b.startMin);
-  const out=[];let cur=dayStartMin;
-  for(const t of placed){const g=t.startMin-cur;
-    if(g>0){const prev=out.length?out[out.length-1]:null;
-      const moving=prev&&prev.kind==="task"&&prev.task.place&&t.place&&prev.task.place!==t.place;
-      out.push({kind:"gap",gapKind:moving?GAP.TRAVEL:GAP.REST,startMin:cur,endMin:t.startMin,
-        durationMin:g,from:moving?prev.task.place:null,to:moving?t.place:null});}
-    else if(g<0)out.push({kind:"overlap",startMin:t.startMin,endMin:cur,durationMin:-g});
-    out.push({kind:"task",task:t,startMin:t.startMin,endMin:t.startMin+(t.duration??0)});
-    cur=Math.max(cur,t.startMin+(t.duration??0));}
-  if(cur<dayEndMin)out.push({kind:"gap",gapKind:GAP.REST,startMin:cur,endMin:dayEndMin,
-    durationMin:dayEndMin-cur,from:null,to:null});
-  return out;};
-const summarise=(bp,entries,jdn)=>{let done=0,skipped=0,unknown=0,resch=0,plannedMin=0,actualMin=0;
-  for(const t of bp){plannedMin+=t.duration??0;const e=statusOf(entries,t.id,jdn);
-    if(!e){unknown++;continue}
-    if(e.status===STATUS.DONE){done++;actualMin+=e.durationMin??t.duration??0}
-    else if(e.status===STATUS.SKIPPED)skipped++; else if(e.status===STATUS.RESCHEDULED)resch++; else unknown++;}
-  const unp=entries.filter(e=>e.dayJdn===jdn&&e.unplanned&&e.status===STATUS.DONE);
-  for(const e of unp)actualMin+=e.durationMin??0;
-  const answered=done+skipped+resch;
-  return{done,skipped,unknown,rescheduled:resch,unplannedCount:unp.length,plannedMin,actualMin,
-    answered,adherence:answered===0?null:done/answered};};
+const timeline=(ts,{s0=300,s1=1440}={})=>{
+  const p=ts.filter(t=>t.startMin!=null).sort((a,b)=>a.startMin-b.startMin);
+  const out=[];let cur=s0;
+  for(const t of p){const g=t.startMin-cur;
+    if(g>0){const pv=out.length?out[out.length-1]:null;
+      const mv=pv&&pv.kind==="task"&&pv.task.place&&t.place&&pv.task.place!==t.place;
+      out.push({kind:"gap",gapKind:mv?GAP.TRAVEL:GAP.REST,startMin:cur,endMin:t.startMin,
+        durationMin:g,from:mv?pv.task.place:null,to:mv?t.place:null})}
+    else if(g<0)out.push({kind:"overlap",startMin:t.startMin,durationMin:-g});
+    out.push({kind:"task",task:t,startMin:t.startMin});
+    cur=Math.max(cur,t.startMin+(t.duration??0))}
+  if(cur<s1)out.push({kind:"gap",gapKind:GAP.REST,startMin:cur,endMin:s1,durationMin:s1-cur});
+  return out};
+const statusOf=(es,tid,j)=>{const f=es.filter(e=>e.taskId===tid&&e.dayJdn===j);
+  return f.length?f[f.length-1]:null};
 
-// ─── state ──────────────────────────────────────────────────────────────────
+// ═══ defaults (mirrors src/defaults.mjs) — ATOMIC: one activity each ═══
+const DEFAULTS=[
+  {key:"wake",title:"መነሳት",startMin:360,duration:5,place:"ቤት"},
+  {key:"breakfast",title:"ቁርስ",startMin:420,duration:30,place:"ቤት"},
+  {key:"lunch",title:"ምሳ",startMin:750,duration:45,place:"ቤት"},
+  {key:"dinner",title:"እራት",startMin:1170,duration:45,place:"ቤት"},
+  {key:"sleep",title:"እንቅልፍ",startMin:1350,duration:450,place:"ቤት"},
+];
+
+// ═══ state — NO seeded history. Empty until the user acts. ═══
 let uid=0;const nid=p=>`${p}${++uid}`;
-const TODAY=dayFromGc(2026,8,14);
+const TODAY=dayG(2026,8,14);
 let nowMin=14*60;
+let route={name:"today"};
 let selJdn=TODAY.jdn;
-let tab="today";
-let calMode="ec";
-let calAnchor={ec:{...jdnToEc(TODAY.jdn)},gc:{...jdnToGc(TODAY.jdn)}};
-let bpFilter="all";
-
-const tasks=[];const entries=[];
-const T=(title,rule,startMin,duration,place,extra={})=>{
-  const t={id:nid("t"),title,rule,startMin,duration,place,note:"",...extra};tasks.push(t);return t;};
-
-T("Wake & stretch",{kind:"everyday"},360,20,"Home");
-T("Breakfast",{kind:"everyday"},390,30,"Home");
-T("Commute",{kind:"weekday"},480,40,"Transit");
-T("Team standup",{kind:"weekday"},540,15,"Office");
-T("Deep work",{kind:"weekday"},570,150,"Office");
-T("Lunch",{kind:"everyday"},750,45,"Office");
-T("Emails & admin",{kind:"weekday"},840,45,"Office");
-T("Deep work II",{kind:"weekday"},900,120,"Office");
-T("Commute home",{kind:"weekday"},1050,40,"Transit");
-T("Evening walk",{kind:"everyday"},1140,30,"Outside");
-T("Dinner",{kind:"everyday"},1200,45,"Home");
-T("Read",{kind:"everyday"},1290,30,"Home");
-T("Long ride",{kind:"weekend"},480,150,"Outside");
-T("House clean",{kind:"weekend"},720,90,"Home");
-T("Grocery run",{kind:"weekend"},900,60,"Store");
-T("Weekly review",{kind:"dow",dow:0},1020,45,"Home");
-T("Pay rent",{kind:"gc-monthday",day:1},600,20,"Home");
-T("Family call",{kind:"ec-monthday",day:1},1140,40,"Home");
-T("Holiday feast",{kind:"holiday"},780,180,"Home");
-
-// Seed a plausible history so the graphs have something honest to show.
-(()=>{
-  for(let back=1;back<=13;back++){
-    const j=TODAY.jdn-back;const d=dayFromJdn(j);
-    const bp=tasks.filter(t=>t.rule&&firesOn(t.rule,d));
-    // Older days are only partly reviewed — blanks are realistic, not failures.
-    const coverage=back<=6?0.85:0.45;
-    bp.forEach((t,i)=>{
-      const r=((j*31+i*17)%100)/100;
-      if(r>coverage)return;
-      const good=((j*13+i*7)%100)/100;
-      if(good<0.72)entries.push({id:nid("e"),taskId:t.id,dayJdn:j,status:STATUS.DONE,
-        atMin:t.startMin+(((j+i)%5)-2)*10,durationMin:t.duration,unplanned:false,note:""});
-      else if(good<0.9)entries.push({id:nid("e"),taskId:t.id,dayJdn:j,status:STATUS.SKIPPED,
-        atMin:null,durationMin:null,unplanned:false,note:""});
-    });
-    if(back%4===0)entries.push({id:nid("e"),taskId:nid("x"),dayJdn:j,status:STATUS.DONE,
-      atMin:960,durationMin:40,unplanned:true,note:"Unplanned errand",title:"Unplanned errand"});
-  }
-})();
-// A couple of entries for today, before the simulated clock.
-entries.push({id:nid("e"),taskId:tasks[0].id,dayJdn:TODAY.jdn,status:STATUS.DONE,atMin:365,durationMin:20,unplanned:false,note:""});
-entries.push({id:nid("e"),taskId:tasks[1].id,dayJdn:TODAY.jdn,status:STATUS.DONE,atMin:395,durationMin:25,unplanned:false,note:""});
+let anchor={...j2e(TODAY.jdn)};
+const disabled=new Set();
+const tasks=DEFAULTS.map(d=>({...d,id:"default:"+d.key,rule:{kind:"everyday"},isDefault:true}));
+const entries=[];
 
 const now=()=>({jdn:TODAY.jdn,minutes:nowMin});
-const selDay=()=>dayFromJdn(selJdn);
-const bpFor=d=>tasks.filter(t=>t.rule&&firesOn(t.rule,d)).sort((a,b)=>(a.startMin??0)-(b.startMin??0));
-const oneOffsFor=d=>tasks.filter(t=>!t.rule&&t.onJdn===d.jdn).sort((a,b)=>(a.startMin??0)-(b.startMin??0));
-const dayTasks=d=>[...bpFor(d),...oneOffsFor(d)].sort((a,b)=>(a.startMin??0)-(b.startMin??0));
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const $=id=>document.getElementById(id);
+const $=i=>document.getElementById(i);
+const live=t=>!(t.isDefault&&disabled.has(t.key));
+const forDay=d=>tasks.filter(t=>live(t)&&(t.rule?fires(t.rule,d):t.onJdn===d.jdn))
+  .sort((a,b)=>(a.startMin??0)-(b.startMin??0));
+const go=r=>{route=r;window.scrollTo(0,0);render()};
 
-// ─── actions ────────────────────────────────────────────────────────────────
-function setStatus(taskId,jdn,status,atMin,durationMin){
-  if(status===STATUS.DONE){
-    const chk=canCompleteAt({dayJdn:jdn,atMin:atMin??0},now());
-    if(!chk.ok){toast("Can't log that yet",chk.reason);return false}
+// ═══ actions ═══
+function setStatus(tid,j,st,plannedMin){
+  if(st===ST.DONE){
+    const c=canDo({dayJdn:j,actualMin:plannedMin},now());
+    if(!c.ok)return say("ገና አልተቻለም",c.why);
   }
-  const prev=statusOf(entries,taskId,jdn);
-  if(prev&&prev.status===status){ // toggle back to blank — blank is a real state
-    entries.splice(entries.indexOf(prev),1);render();return true;
-  }
-  entries.push({id:nid("e"),taskId,dayJdn:jdn,status,atMin:atMin??null,
-    durationMin:durationMin??null,unplanned:false,note:""});
-  render();return true;
+  const prev=statusOf(entries,tid,j);
+  if(prev&&prev.status===st){entries.splice(entries.indexOf(prev),1);return render()}
+  entries.push({id:nid("e"),taskId:tid,dayJdn:j,status:st,plannedMin:plannedMin??null,
+    actualMin:st===ST.DONE?plannedMin??null:null,durationMin:null,unplanned:false,
+    loggedAtJdn:now().jdn,loggedAtMin:now().minutes});
+  render();
 }
-function toast(title,msg){
-  $("dlgbody").innerHTML=`<h4>${esc(title)}</h4><p>${esc(msg)}</p>
-    <div class="dlgacts"><button class="go" id="ok">Got it</button></div>`;
-  $("dlg").showModal();$("ok").onclick=()=>$("dlg").close();
+function say(h,p){$("dbody").innerHTML=`<h4>${esc(h)}</h4><p>${esc(p)}</p>
+  <div class="dacts"><button class="solid" id="k">እሺ</button></div>`;
+  $("dlg").showModal();$("k").onclick=()=>$("dlg").close()}
+
+function editActual(tid,j){
+  const t=tasks.find(x=>x.id===tid);const e=statusOf(entries,tid,j);
+  $("dbody").innerHTML=`<h4>የተከናወነበት ሰዓት</h4>
+    <p>የታቀደው ${fmtT(t?.startMin)} ነበር። በትክክል የተከናወነው መቼ ነው?</p>
+    <div class="frow"><input type="time" id="ta" value="${fmtT(e?.actualMin??t?.startMin??0)}" /></div>
+    <div class="dacts"><button class="ghost" id="c">ተወው</button><button class="solid" id="s">አስቀምጥ</button></div>`;
+  $("dlg").showModal();$("c").onclick=()=>$("dlg").close();
+  $("s").onclick=()=>{const v=parseT($("ta").value);if(v==null)return;
+    const c=canDo({dayJdn:j,actualMin:v},now());
+    if(!c.ok){$("dlg").close();return say("ገና አልተቻለም",c.why)}
+    entries.push({id:nid("e"),taskId:tid,dayJdn:j,status:ST.DONE,plannedMin:t?.startMin??null,
+      actualMin:v,durationMin:null,unplanned:false,loggedAtJdn:now().jdn,loggedAtMin:now().minutes});
+    $("dlg").close();render()};
 }
 function logUnplanned(){
-  const d=selDay();
-  $("dlgbody").innerHTML=`<h4>Log something you actually did</h4>
-    <p>It wasn't planned — that's fine. This records reality, it doesn't score you.</p>
-    <div class="dlgrow"><label>What</label><input id="u_t" placeholder="e.g. Fixed the sink" /></div>
-    <div class="dlgrow"><label>At</label><input id="u_at" type="time" value="${fmtTime(Math.min(nowMin,1380))}" /></div>
-    <div class="dlgrow"><label>Minutes</label><input id="u_d" type="number" value="30" min="0" step="5" /></div>
-    <div class="dlgacts"><button class="ghost" id="c">Cancel</button><button class="go" id="s">Log it</button></div>`;
-  $("dlg").showModal();
-  $("c").onclick=()=>$("dlg").close();
-  $("s").onclick=()=>{
-    const title=$("u_t").value.trim();if(!title)return;
-    const at=parseTime($("u_at").value)??0;
-    const chk=canCompleteAt({dayJdn:d.jdn,atMin:at},now());
-    if(!chk.ok){toast("Can't log that yet",chk.reason);return}
-    entries.push({id:nid("e"),taskId:nid("x"),dayJdn:d.jdn,status:STATUS.DONE,atMin:at,
-      durationMin:+$("u_d").value||0,unplanned:true,note:"",title});
-    $("dlg").close();render();
-  };
-}
-function reschedule(taskId,jdn){
-  $("dlgbody").innerHTML=`<h4>Reschedule</h4>
-    <p>Moving it isn't failing. Say when it's actually going to happen.</p>
-    <div class="dlgrow"><label>Move to</label><input id="r_d" type="date" value="${dayFromJdn(jdn+1).iso}" /></div>
-    <div class="dlgacts"><button class="ghost" id="c">Cancel</button><button class="go" id="s">Move</button></div>`;
+  const d=day(selJdn);
+  $("dbody").innerHTML=`<h4>ያልታቀደ ነገር መዝግብ</h4>
+    <p>አልታቀደም ነበር — ችግር የለም። ይህ የሆነውን ይመዘግባል፣ አይቀጣም።</p>
+    <div class="frow"><span class="lbl">ምን</span><input id="u_t" placeholder="ለምሳሌ፦ ቧንቧ ጠገንኩ" /></div>
+    <div class="frow"><span class="lbl">የተከናወነበት ሰዓት</span><input type="time" id="u_a" value="${fmtT(Math.min(nowMin,1439))}" /></div>
+    <div class="frow"><span class="lbl">ደቂቃ</span><input type="number" id="u_d" value="30" min="0" step="5" /></div>
+    <div class="dacts"><button class="ghost" id="c">ተወው</button><button class="solid" id="s">መዝግብ</button></div>`;
   $("dlg").showModal();$("c").onclick=()=>$("dlg").close();
-  $("s").onclick=()=>{const [y,m,dd]=$("r_d").value.split("-").map(Number);
-    entries.push({id:nid("e"),taskId,dayJdn:jdn,status:STATUS.RESCHEDULED,atMin:null,
-      durationMin:null,unplanned:false,note:"",movedToJdn:gcToJdn(y,m,dd)});
-    $("dlg").close();render();};
+  $("s").onclick=()=>{const ttl=$("u_t").value.trim();if(!ttl)return;
+    const a=parseT($("u_a").value)??0;
+    const c=canDo({dayJdn:d.jdn,actualMin:a},now());
+    if(!c.ok){$("dlg").close();return say("ገና አልተቻለም",c.why)}
+    entries.push({id:nid("e"),taskId:nid("x"),dayJdn:d.jdn,status:ST.DONE,plannedMin:null,
+      actualMin:a,durationMin:+$("u_d").value||0,unplanned:true,title:ttl,
+      loggedAtJdn:now().jdn,loggedAtMin:now().minutes});
+    $("dlg").close();render()};
+}
+function reschedule(tid,j){
+  $("dbody").innerHTML=`<h4>ወደ ሌላ ቀን አዛውር</h4>
+    <p>ማዛወር ውድቀት አይደለም። መቼ እንደሚሆን ብቻ ንገረኝ።</p>
+    <div class="frow"><input type="date" id="r_d" value="${day(j+1).iso}" /></div>
+    <div class="dacts"><button class="ghost" id="c">ተወው</button><button class="solid" id="s">አዛውር</button></div>`;
+  $("dlg").showModal();$("c").onclick=()=>$("dlg").close();
+  $("s").onclick=()=>{const[y,m,dd]=$("r_d").value.split("-").map(Number);
+    entries.push({id:nid("e"),taskId:tid,dayJdn:j,status:ST.RESCHEDULED,plannedMin:null,actualMin:null,
+      durationMin:null,unplanned:false,movedToJdn:g2j(y,m,dd),loggedAtJdn:now().jdn,loggedAtMin:now().minutes});
+    $("dlg").close();render()};
 }
 
-// ─── views ──────────────────────────────────────────────────────────────────
-function slotHtml(t,d,cls){
+// ═══ shared pieces ═══
+const crumb=parts=>`<nav class="crumb">${parts.map((p,i)=>
+  (i?`<span class="sep">›</span>`:"")+(p.go?`<a data-go='${esc(JSON.stringify(p.go))}'>${esc(p.t)}</a>`
+  :`<span>${esc(p.t)}</span>`)).join("")}</nav>`;
+
+function slot(t,d,cls){
   const e=statusOf(entries,t.id,d.jdn);
-  const st=e?e.status:STATUS.UNKNOWN;
+  const st=e?e.status:ST.UNKNOWN;
   const future=d.jdn>now().jdn||(d.jdn===now().jdn&&(t.startMin??0)>nowMin);
-  const doneAt=e&&e.status===STATUS.DONE&&e.atMin!=null&&e.atMin!==t.startMin;
+  const drift=e&&e.status===ST.DONE&&e.actualMin!=null&&e.actualMin!==t.startMin;
   return `<div class="slot ${cls}">
-    <div class="t">${t.startMin!=null?fmtTime(t.startMin):"—"}</div>
-    <div class="body">
-      <div class="ttl ${st===STATUS.DONE?"done":""}">${esc(t.title)}
-        ${t.rule?`<span class="badge bp">blueprint</span>`:`<span class="badge">one-off</span>`}
-        ${st===STATUS.UNKNOWN?`<span class="badge unk">no answer yet</span>`:""}
-        ${st===STATUS.RESCHEDULED?`<span class="badge unp">moved</span>`:""}
+    <div class="tcol">
+      <div class="tp">${fmtT(t.startMin)}</div>
+      ${drift?`<div class="ta">${fmtT(e.actualMin)}</div>`:""}
+    </div>
+    <div class="mid">
+      <div class="name ${st===ST.DONE?"done":st===ST.SKIPPED?"skip":""}">${esc(t.title)}
+        ${t.isDefault?`<span class="chip def">መሠረታዊ</span>`:""}
+        ${st===ST.RESCHEDULED?`<span class="chip mv">ተዛውሯል</span>`:""}
       </div>
-      <div class="meta">${t.duration??0}m${t.place?` · ${esc(t.place)}`:""}${
-        doneAt?` · <b>actually ${fmtTime(e.atMin)}</b>`:""}</div>
+      <div class="det"><span>${fmtD(t.duration)}</span>
+        ${t.place?`<span class="dot">·</span><span>${esc(t.place)}</span>`:""}</div>
+      ${e&&e.loggedAtMin!=null&&st===ST.DONE
+        ?`<div class="logged">የተመዘገበበት ${fmtT(e.loggedAtMin)}${e.loggedAtJdn!==d.jdn?" (በሌላ ቀን)":""}</div>`:""}
     </div>
     <div class="acts">
-      <button class="mini ${st===STATUS.DONE?"on-done":""}" data-done="${t.id}" data-jdn="${d.jdn}"
-        data-at="${t.startMin??0}" data-dur="${t.duration??0}" ${future&&st!==STATUS.DONE?"disabled title='Not yet — it hasn\\'t happened'":""}>done</button>
-      <button class="mini ${st===STATUS.SKIPPED?"on-skip":""}" data-skip="${t.id}" data-jdn="${d.jdn}">no</button>
-      <button class="mini" data-resc="${t.id}" data-jdn="${d.jdn}">↷</button>
+      <button class="b ${st===ST.DONE?"yes":""}" data-done="${t.id}" data-j="${d.jdn}" data-p="${t.startMin??0}"
+        ${future&&st!==ST.DONE?"disabled":""}>${st===ST.DONE?"✓":"አዎ"}</button>
+      <button class="b ${st===ST.SKIPPED?"no":""}" data-skip="${t.id}" data-j="${d.jdn}">የለም</button>
+      <button class="b icon" data-menu="${t.id}" data-j="${d.jdn}">⋯</button>
     </div>
   </div>`;
 }
 
-function viewToday(){
-  const d=selDay();
-  const list=dayTasks(d);
-  const line=timelineWithGaps(list);
-  const isToday=d.jdn===TODAY.jdn;
-  const s=summarise(bpFor(d),entries,d.jdn);
+function rail(d,{showNow}={}){
+  const list=forDay(d);
   const unp=entries.filter(e=>e.dayJdn===d.jdn&&e.unplanned);
-
-  let rows="";
-  for(const seg of line){
-    if(seg.kind==="gap"){
-      if(seg.durationMin<15)continue;
-      const lbl=seg.gapKind===GAP.TRAVEL
-        ? `travel ${esc(seg.from)} → ${esc(seg.to)} · ${seg.durationMin}m`
-        : `rest / open · ${seg.durationMin}m`;
-      rows+=`<div class="gap ${seg.gapKind}"><div class="t">${fmtTime(seg.startMin)}</div><div>${lbl}</div></div>`;
-    } else if(seg.kind==="overlap"){
-      rows+=`<div class="gap overlap"><div class="t">${fmtTime(seg.startMin)}</div>
-        <div>overlap · ${seg.durationMin}m double-booked</div></div>`;
+  if(!list.length&&!unp.length)
+    return `<div class="rail"><div class="empty">ለዚህ ቀን ምንም የለም።<br/>ባዶ ቀን ትክክለኛ ቀን ነው።</div></div>`;
+  let h="";
+  for(const s of timeline(list)){
+    if(s.kind==="gap"){
+      if(s.durationMin<20)continue;
+      h+=`<div class="gap ${s.gapKind}"><div class="tcol">${fmtT(s.startMin)}</div>
+        <div>${s.gapKind===GAP.TRAVEL
+          ?`ጉዞ ${esc(s.from)} → ${esc(s.to)} · ${fmtD(s.durationMin)}`
+          :`ዕረፍት · ${fmtD(s.durationMin)}`}</div></div>`;
+    } else if(s.kind==="overlap"){
+      h+=`<div class="gap overlap"><div class="tcol">${fmtT(s.startMin)}</div>
+        <div>መደራረብ · ${fmtD(s.durationMin)}</div></div>`;
     } else {
-      const t=seg.task;
-      const cur=isToday&&t.startMin<=nowMin&&nowMin<t.startMin+(t.duration??0);
-      const past=isToday&&t.startMin+(t.duration??0)<=nowMin;
-      rows+=slotHtml(t,d,cur?"current":past?"past":"");
+      const t=s.task;
+      const cur=showNow&&t.startMin<=nowMin&&nowMin<t.startMin+(t.duration??0);
+      const past=showNow&&t.startMin+(t.duration??0)<=nowMin;
+      h+=slot(t,d,cur?"now":past?"past":"");
     }
   }
-  const unpRows=unp.map(e=>`<div class="slot">
-    <div class="t">${e.atMin!=null?fmtTime(e.atMin):"—"}</div>
-    <div class="body"><div class="ttl">${esc(e.title??"Unplanned")}
-      <span class="badge unp">unplanned</span></div>
-      <div class="meta">${e.durationMin??0}m · logged after the fact</div></div></div>`).join("");
-
-  return `<div class="hd">
-      <div>
-        <h1>${isToday?"Today":d.dowName}${d.holidays.length?`<span class="hol">${esc(d.holidays[0])}</span>`:""}</h1>
-        <p class="dual"><b>${d.ec.d} ${d.ecMonthName} ${d.ec.y}</b> EC · ${d.gc.d} ${d.gcMonthName} ${d.gc.y} GC · ${d.dowName}</p>
-      </div>
-    </div>
-    <p class="sub">The blueprint is the ideal. What you log is reality. The difference is information, not a score.</p>
-    <div class="grid">
-      <div>
-        <div class="card" style="margin-bottom:16px">
-          <h3>The day <span class="r">${list.length} planned${isToday?` · now ${fmtTime(nowMin)}`:""}</span></h3>
-          <div class="strip">${rows||'<div class="empty">Nothing planned. A blank day is a valid day.</div>'}</div>
-        </div>
-        ${unp.length?`<div class="card" style="margin-bottom:16px">
-          <h3>Also happened <span class="r">not planned — still counts</span></h3>
-          <div class="strip">${unpRows}</div></div>`:""}
-        <div class="card">
-          <h3>Quick add</h3>
-          <div class="pad">
-            <div class="qa">
-              <input type="text" id="q_t" placeholder="Add a task…" />
-              <input type="time" id="q_at" value="${fmtTime(Math.min(nowMin+30,1380))}" />
-              <input type="number" id="q_d" value="30" min="0" step="5" title="minutes" />
-              <button class="go" id="q_add">Add</button>
-            </div>
-            <button class="more" id="q_more">+ more detail</button>
-            <div class="det" id="q_det">
-              <select id="q_f">
-                <option value="once">once — just this day</option>
-                <option value="daily">every day</option>
-                <option value="weekday">every weekday</option>
-                <option value="weekend">every weekend</option>
-                <option value="weekly">every ${d.dowName}</option>
-                <option value="monthly">day ${d.gc.d} each GC month</option>
-                <option value="ec-monthly">day ${d.ec.d} each EC month</option>
-              </select>
-              <input type="text" id="q_p" placeholder="place (enables travel gaps)" />
-            </div>
-            <button class="more" id="q_unp">✓ I did something that wasn't planned</button>
-          </div>
-        </div>
-      </div>
-      <div>
-        <div class="card" style="margin-bottom:16px">
-          <h3>How the day went</h3>
-          <div class="stats">
-            <div class="stat"><div class="k">Done</div><div class="v ok">${s.done}</div></div>
-            <div class="stat"><div class="k">Said no</div><div class="v">${s.skipped}</div></div>
-            <div class="stat"><div class="k">No answer</div><div class="v un">${s.unknown}</div></div>
-            <div class="stat"><div class="k">Unplanned</div><div class="v wa">${s.unplannedCount}</div></div>
-          </div>
-          <div class="note">${s.answered===0
-            ? "Nothing answered yet. That's not a failure — it just means no information."
-            : `Of the ${s.answered} you answered, ${s.done} got done. ${s.unknown} still blank.`}</div>
-        </div>
-        ${calendarCard(true)}
-      </div>
-    </div>`;
+  for(const e of unp)h+=`<div class="slot">
+    <div class="tcol"><div class="tp">${fmtT(e.actualMin)}</div></div>
+    <div class="mid"><div class="name">${esc(e.title)} <span class="chip unp">ያልታቀደ</span></div>
+      <div class="det"><span>${fmtD(e.durationMin)}</span></div>
+      <div class="logged">የተመዘገበበት ${fmtT(e.loggedAtMin)}</div></div></div>`;
+  return `<div class="rail">${h}</div>`;
 }
 
-function calendarCard(compact){
-  const mode=calMode;
-  let cells=[],title="",sub="";
-  if(mode==="ec"){
-    const {y,m}=calAnchor.ec;
-    title=`${EC_MONTHS[m-1]} ${y}`;
-    const len=ecMonthLength(y,m);
-    const first=dayFromEc(y,m,1);
-    sub=`${first.gcMonthName} ${first.gc.y} GC`;
-    for(let i=0;i<first.dow;i++)cells.push(null);
-    for(let i=1;i<=len;i++)cells.push(dayFromEc(y,m,i));
-  } else {
-    const {y,m}=calAnchor.gc;
-    title=`${GC_MONTHS[m-1]} ${y}`;
-    const len=gcMonthLength(y,m);
-    const first=dayFromGc(y,m,1);
-    sub=`${first.ecMonthName} ${first.ec.y} EC`;
-    for(let i=0;i<first.dow;i++)cells.push(null);
-    for(let i=1;i<=len;i++)cells.push(dayFromGc(y,m,i));
-  }
-  const daysHtml=cells.map(d=>{
-    if(!d)return `<div></div>`;
-    const n=mode==="ec"?d.ec.d:d.gc.d;
-    const alt=mode==="ec"?d.gc.d:d.ec.d;
-    const cnt=bpFor(d).length;
-    return `<button class="day ${d.jdn===selJdn?"sel":""} ${d.jdn===TODAY.jdn?"today":""}
-      ${d.isWeekend?"wknd":""} ${d.holidays.length?"hol":""}" data-jdn="${d.jdn}"
-      title="${esc(d.dowName)}${d.holidays.length?" · "+esc(d.holidays.join(", ")):""}">
-      <span class="n">${n}</span><span class="alt">${alt}</span>
-      ${cnt?`<span class="dot"></span>`:""}</button>`;
-  }).join("");
-  return `<div class="card">
-    <div class="calhd">
-      <button class="arrow" data-cal="-1">‹</button>
-      <div class="nm">${title}<span>${sub}</span></div>
-      <button class="arrow" data-cal="1">›</button>
+function quickAdd(d){
+  return `<div class="qa">
+    <div class="qarow">
+      <input type="text" id="q_t" placeholder="ተግባር ጨምር…" />
+      <button class="b yes" id="q_go">ጨምር</button>
     </div>
-    <div class="dows">${DOW3.map(x=>`<div>${x}</div>`).join("")}</div>
-    <div class="days">${daysHtml}</div>
-    <div class="swapcal">
-      <button class="${mode==="ec"?"on":""}" data-mode="ec">Ethiopian first</button>
-      <button class="${mode==="gc"?"on":""}" data-mode="gc">Gregorian first</button>
+    <button class="expand" id="q_x">ተጨማሪ ዝርዝር +</button>
+    <div class="more" id="q_m">
+      <div><span class="lbl">የታቀደ ሰዓት</span><input type="time" id="q_a" value="${fmtT(Math.min(nowMin+30,1439))}" /></div>
+      <div><span class="lbl">ደቂቃ</span><input type="number" id="q_d" value="30" min="0" step="5" /></div>
+      <div class="full"><span class="lbl">ድግግሞሽ</span>
+        <select id="q_f">
+          <option value="once">አንድ ጊዜ — ይህ ቀን ብቻ</option>
+          <option value="everyday">በየቀኑ</option>
+          <option value="weekday">የሥራ ቀናት</option>
+          <option value="weekend">ቅዳሜና እሑድ</option>
+          <option value="weekly">በየ${d.dowN}</option>
+          <option value="ecmonth">በየወሩ ${d.ec.d}</option>
+          <option value="gcmonth">በየወሩ ${d.gc.d} (ግሪጎሪ)</option>
+          <option value="holiday">በዓላት</option>
+        </select></div>
+      <div class="full"><span class="lbl">ቦታ</span>
+        <input type="text" id="q_p" placeholder="ቤት፣ ቢሮ፣ ሱቅ… (ጉዞን ያሳያል)" /></div>
     </div>
   </div>`;
 }
 
-function viewCalendar(){
-  const d=selDay();
-  const list=dayTasks(d);
-  return `<div class="hd"><div>
-      <h1>Calendar</h1>
-      <p class="dual">Both systems, one grid. Big number is the primary calendar, small is the other.</p>
-    </div></div>
-    <p class="sub">Pick any day to see what you do on it. Red dot = holiday · blue bar = has blueprint tasks.</p>
-    <div class="grid">
-      <div>${calendarCard(false)}</div>
-      <div class="card">
-        <h3>${d.ec.d} ${d.ecMonthName} ${d.ec.y} EC <span class="r">${d.gc.d} ${d.gcMonthName} ${d.gc.y}</span></h3>
-        ${d.holidays.length?`<div class="note">${esc(d.holidays.join(" · "))}</div>`:""}
-        <div class="strip">${list.length?list.map(t=>slotHtml(t,d,"")).join("")
-          :'<div class="empty">Nothing on this day.</div>'}</div>
-      </div>
+// ═══ PAGE: today ═══
+function pageToday(){
+  const d=day(selJdn);
+  const isT=d.jdn===TODAY.jdn;
+  return crumb([{t:"እቅድ"},{t:isT?"ዛሬ":d.dowN}])
+    +`<div class="hero">
+      <h1>${isT?"ዛሬ":d.dowN}</h1>
+      <p class="sub">${d.ec.d} ${d.ecM} ${d.ec.y} · ${d.gc.d} ${d.gcM} ${d.gc.y}
+        ${d.hol.length?` · ${esc(d.hol.join("፣ "))}`:""}</p>
+    </div>`
+    +rail(d,{showNow:isT})
+    +quickAdd(d)
+    +`<div class="links">
+      <button class="lk" data-go='{"name":"calendar"}'>
+        <span class="ic">📅</span><span class="lt"><b>የቀን መቁጠሪያ</b>
+        <span>ሌላ ቀን ምረጥ</span></span><span class="ar">›</span></button>
+      <button class="lk" data-go='{"name":"blueprints"}'>
+        <span class="ic">🧭</span><span class="lt"><b>ንድፍ</b>
+        <span>ሁሌም የምታደርገው</span></span><span class="ar">›</span></button>
+      <button class="lk" id="unp">
+        <span class="ic">✓</span><span class="lt"><b>ያልታቀደ ነገር አደረግኩ</b>
+        <span>ከተፈጸመ በኋላ መዝግብ</span></span><span class="ar">›</span></button>
     </div>`;
 }
 
-function viewBlueprint(){
-  const kinds=[["all","All"],["everyday","Every day"],["weekday","Weekdays"],["weekend","Weekends"],
-    ["dow","By weekday"],["gc-monthday","GC monthly"],["ec-monthday","EC monthly"],["holiday","Holidays"]];
-  const shown=tasks.filter(t=>t.rule&&(bpFilter==="all"||t.rule.kind===bpFilter));
-  const groups={};
-  for(const t of shown){const k=describeRule(t.rule);(groups[k]??=[]).push(t)}
-  const body=Object.entries(groups).map(([k,ts])=>`
-    <div class="bpitem" style="background:var(--bg);font-weight:600;font-size:12px;color:var(--muted)">
-      ${esc(k)} · ${ts.length}</div>
-    ${ts.sort((a,b)=>(a.startMin??0)-(b.startMin??0)).map(t=>`<div class="bpitem">
-      <div class="t" style="width:44px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums">
-        ${t.startMin!=null?fmtTime(t.startMin):"—"}</div>
-      <div class="w"><div>${esc(t.title)}</div>
-        <div style="font-size:12px;color:var(--faint)">${t.duration}m${t.place?` · ${esc(t.place)}`:""}</div></div>
-      <button class="mini" data-delbp="${t.id}">remove</button>
-    </div>`).join("")}`).join("");
-  return `<div class="hd"><div>
-      <h1>Blueprint</h1>
-      <p class="dual">What you always do, on each kind of day.</p>
-    </div></div>
-    <p class="sub">Add a task with a recurring frequency anywhere and it lands here automatically.</p>
-    <div class="card">
-      <div class="kinds">${kinds.map(([k,l])=>
-        `<button class="${bpFilter===k?"on":""}" data-bpf="${k}">${l}</button>`).join("")}</div>
-      ${body||'<div class="empty">No blueprint rules of this kind yet.</div>'}
+// ═══ PAGE: calendar ═══
+function pageCalendar(){
+  const {y,m}=anchor;
+  const len=ecLen(y,m);
+  const first=dayE(y,m,1);
+  const last=dayE(y,m,len);
+  const cells=[];
+  for(let i=0;i<first.dow;i++)cells.push(null);
+  for(let i=1;i<=len;i++)cells.push(dayE(y,m,i));
+  const span=first.gc.m===last.gc.m?`${first.gcM} ${first.gc.y}`
+    :`${first.gcM} – ${last.gcM} ${last.gc.y}`;
+  return crumb([{t:"እቅድ",go:{name:"today"}},{t:"የቀን መቁጠሪያ"}])
+    +`<div class="hero"><h1>የቀን መቁጠሪያ</h1>
+      <p class="sub">ቀን ምረጥ፤ ያንን ቀን ምን እንደምታደርግ ታያለህ።</p></div>
+    <div class="cal">
+      <div class="calhd">
+        <button class="nav" data-mo="-1">›</button>
+        <div class="mo"><b>${EC_M[m-1]} ${y}</b><span>${span}</span></div>
+        <button class="nav" data-mo="1">‹</button>
+      </div>
+      <div class="dows">${DOW2.map(x=>`<div>${x}</div>`).join("")}</div>
+      <div class="days">${cells.map(c=>{
+        if(!c)return `<div></div>`;
+        return `<button class="cell ${c.jdn===selJdn?"sel":""} ${c.jdn===TODAY.jdn?"today":""}
+          ${c.wknd?"wknd":""} ${c.hol.length?"hol":""}" data-pick="${c.jdn}"
+          title="${esc(c.dowN)}${c.hol.length?" · "+esc(c.hol.join("፣ ")):""}">
+          <span class="p">${c.ec.d}</span><span class="s">${c.gc.d}</span></button>`}).join("")}</div>
+      <div class="callg"><span>ትልቁ ቁጥር፦ ኢትዮጵያ</span><span>ትንሹ፦ ግሪጎሪ</span>
+        <span><i></i>በዓል</span></div>
     </div>`;
 }
 
-function viewInsights(){
-  const days=[];
-  for(let back=13;back>=0;back--){
-    const j=TODAY.jdn-back,d=dayFromJdn(j);
-    days.push({d,s:summarise(bpFor(d),entries,j)});
-  }
-  const maxN=Math.max(1,...days.map(x=>x.s.done+x.s.skipped+x.s.unknown));
-  const bars=days.map(({d,s})=>{
-    const tot=s.done+s.skipped+s.unknown||1;
-    const h=(n)=>`${(n/maxN)*100}%`;
-    return `<div class="bar" title="${d.iso}: ${s.done} done, ${s.skipped} no, ${s.unknown} blank">
-      <div class="bseg u" style="height:${h(s.unknown)}"></div>
-      <div class="bseg s" style="height:${h(s.skipped)}"></div>
-      <div class="bseg d" style="height:${h(s.done)}"></div>
-    </div>`;}).join("");
-  const labs=days.map(({d})=>`<div class="blab">${d.gc.d}</div>`).join("");
-
-  // Time actually spent, by place — only from real logged entries.
-  const byPlace={};
-  for(const e of entries){
-    if(e.status!==STATUS.DONE)continue;
-    const t=tasks.find(x=>x.id===e.taskId);
-    const p=t?.place??"Unplanned";
-    byPlace[p]=(byPlace[p]??0)+(e.durationMin??t?.duration??0);
-  }
-  const places=Object.entries(byPlace).sort((a,b)=>b[1]-a[1]);
-  const maxP=Math.max(1,...places.map(p=>p[1]));
-
-  // Which blueprint rules actually hold up
-  const byRule={};
-  for(const t of tasks.filter(x=>x.rule)){
-    const k=describeRule(t.rule);
-    const st=(byRule[k]??={done:0,ans:0});
-    for(const e of entries.filter(e=>e.taskId===t.id)){
-      if(e.status===STATUS.DONE){st.done++;st.ans++}
-      else if(e.status===STATUS.SKIPPED)st.ans++;
-    }
-  }
-  const rules=Object.entries(byRule).filter(([,v])=>v.ans>0)
-    .sort((a,b)=>(b[1].done/b[1].ans)-(a[1].done/a[1].ans));
-
-  const totals=days.reduce((a,x)=>({done:a.done+x.s.done,skipped:a.skipped+x.s.skipped,
-    unknown:a.unknown+x.s.unknown,unp:a.unp+x.s.unplannedCount}),{done:0,skipped:0,unknown:0,unp:0});
-
-  return `<div class="hd"><div><h1>Insights</h1>
-    <p class="dual">Built only from what you actually logged.</p></div></div>
-    <p class="sub">Blank days are shown as blank — never counted as failure.</p>
-    <div class="grid">
-      <div>
-        <div class="card" style="margin-bottom:16px">
-          <h3>Last 14 days <span class="r">${totals.done} done · ${totals.unknown} unanswered</span></h3>
-          <div class="bars">${bars}</div>
-          <div style="display:grid;grid-template-columns:repeat(14,1fr);padding:0 14px">${labs}</div>
-          <div class="lg">
-            <span><i class="bseg d" style="background:var(--ok)"></i>done</span>
-            <span><i class="bseg s" style="background:#c8cedb"></i>said no</span>
-            <span><i class="bseg u" style="background:#eef0f4"></i>no answer</span>
-          </div>
-        </div>
-        <div class="card">
-          <h3>Where the time actually went</h3>
-          ${places.length?`<div class="hbars">${places.map(([p,m])=>`<div class="hb">
-            <div class="hl">${esc(p)}</div>
-            <div class="ht"><div class="hf" style="width:${(m/maxP)*100}%"></div></div>
-            <div class="hv">${m>=60?(m/60).toFixed(1)+"h":m+"m"}</div></div>`).join("")}</div>`
-            :'<div class="empty">Nothing logged yet.</div>'}
-        </div>
-      </div>
-      <div>
-        <div class="card" style="margin-bottom:16px">
-          <h3>Which routines hold up</h3>
-          ${rules.length?`<div class="hbars">${rules.map(([k,v])=>`<div class="hb">
-            <div class="hl" title="${esc(k)}">${esc(k)}</div>
-            <div class="ht"><div class="hf" style="width:${(v.done/v.ans)*100}%"></div></div>
-            <div class="hv">${Math.round((v.done/v.ans)*100)}%</div></div>`).join("")}</div>`
-            :'<div class="empty">Not enough answers yet.</div>'}
-          <div class="note">Percentages count only occurrences you answered. Blanks are excluded, so an unreviewed week can't drag a routine down.</div>
-        </div>
-        <div class="card">
-          <h3>Totals</h3>
-          <div class="stats">
-            <div class="stat"><div class="k">Done</div><div class="v ok">${totals.done}</div></div>
-            <div class="stat"><div class="k">Said no</div><div class="v">${totals.skipped}</div></div>
-            <div class="stat"><div class="k">Blank</div><div class="v un">${totals.unknown}</div></div>
-            <div class="stat"><div class="k">Unplanned</div><div class="v wa">${totals.unp}</div></div>
-          </div>
-        </div>
-      </div>
-    </div>`;
+// ═══ PAGE: blueprint index ═══
+function pageBlueprints(){
+  const rows=RULES.map(r=>{
+    const n=tasks.filter(t=>live(t)&&t.rule&&JSON.stringify(t.rule)===JSON.stringify(r.rule)).length;
+    return `<button class="bpr" data-go='{"name":"blueprint","id":"${r.id}"}'>
+      <span class="n"><b>${r.label}</b><span>${r.desc}</span></span>
+      <span class="c ${n?"":"zero"}">${n}</span><span class="ar">›</span></button>`}).join("");
+  return crumb([{t:"እቅድ",go:{name:"today"}},{t:"ንድፍ"}])
+    +`<div class="hero"><h1>ንድፍ</h1>
+      <p class="sub">በእያንዳንዱ ዓይነት ቀን ሁሌም የምታደርገው። እያንዳንዱ የራሱ ገጽ አለው።</p></div>
+    <div class="bp">${rows}</div>
+    <div class="hint">ተግባር ስትጨምር ድግግሞሽ ከሰጠኸው በራሱ ወደዚህ ይገባል።</div>`;
 }
 
+// ═══ PAGE: one blueprint ═══
+function pageBlueprint(id){
+  const r=RULES.find(x=>x.id===id);
+  if(!r)return pageBlueprints();
+  const mine=tasks.filter(t=>t.rule&&JSON.stringify(t.rule)===JSON.stringify(r.rule))
+    .sort((a,b)=>(a.startMin??0)-(b.startMin??0));
+  const rows=mine.length?mine.map(t=>{
+    const off=t.isDefault&&disabled.has(t.key);
+    return `<div class="slot">
+      <div class="tcol"><div class="tp">${fmtT(t.startMin)}</div></div>
+      <div class="mid"><div class="name ${off?"skip":""}">${esc(t.title)}
+        ${t.isDefault?`<span class="chip ${off?"off":"def"}">መሠረታዊ</span>`:""}</div>
+        <div class="det"><span>${fmtD(t.duration)}</span>
+          ${t.place?`<span class="dot">·</span><span>${esc(t.place)}</span>`:""}</div></div>
+      <div class="acts">${t.isDefault
+        ?`<button class="b ${off?"":"yes"}" data-tog="${t.key}">${off?"አብራ":"በርቷል"}</button>`
+        :`<button class="b" data-del="${t.id}">አስወግድ</button>`}</div>
+    </div>`}).join("")
+    :`<div class="empty">በዚህ ንድፍ ውስጥ ምንም የለም።</div>`;
+  return crumb([{t:"እቅድ",go:{name:"today"}},{t:"ንድፍ",go:{name:"blueprints"}},{t:r.label}])
+    +`<div class="hero"><h1>${r.label}</h1><p class="sub">${r.desc}</p></div>
+    <div class="rail">${rows}</div>
+    ${mine.some(t=>t.isDefault)?`<div class="hint">መሠረታዊ ተግባራት ሁሌም አሉ። ማጥፋት ትችላለህ — አይጠፉም፣ እንደጠፉ ይታያሉ።</div>`:""}`;
+}
+
+// ═══ render ═══
 function render(){
-  document.querySelectorAll(".nav").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
-  $("app").innerHTML= tab==="today"?viewToday() : tab==="calendar"?viewCalendar()
-    : tab==="blueprint"?viewBlueprint() : viewInsights();
-  wire();
-}
-
-function wire(){
-  const add=$("q_add");
-  if(add){
-    const doAdd=()=>{
-      const title=$("q_t").value.trim();if(!title)return;
-      const d=selDay();
+  const r=route;
+  $("app").innerHTML= r.name==="today"?pageToday()
+    : r.name==="calendar"?pageCalendar()
+    : r.name==="blueprints"?pageBlueprints()
+    : r.name==="blueprint"?pageBlueprint(r.id) : pageToday();
+  const g=$("q_go");
+  if(g){
+    const add=()=>{
+      const t=$("q_t").value.trim();if(!t)return;
+      const d=day(selJdn);
       const f=$("q_f")?$("q_f").value:"once";
-      const rule=ruleFromFrequency(f,d);
-      const t={id:nid("t"),title,rule,startMin:parseTime($("q_at").value)??nowMin,
-        duration:+$("q_d").value||0,place:($("q_p")?.value.trim())||null,note:""};
-      if(!rule)t.onJdn=d.jdn;
-      tasks.push(t);render();
+      const rule=ruleFromFreq(f,d);
+      const task={id:nid("t"),title:t,rule,
+        startMin:$("q_a")?parseT($("q_a").value)??nowMin:nowMin,
+        duration:$("q_d")?+$("q_d").value||0:30,
+        place:$("q_p")?.value.trim()||null};
+      if(!rule)task.onJdn=d.jdn;
+      tasks.push(task);render();
     };
-    add.onclick=doAdd;
-    $("q_t").onkeydown=e=>{if(e.key==="Enter")doAdd()};
-    $("q_more").onclick=()=>$("q_det").classList.toggle("show");
-    $("q_unp").onclick=logUnplanned;
+    g.onclick=add;
+    $("q_t").onkeydown=e=>{if(e.key==="Enter")add()};
+    $("q_x").onclick=()=>$("q_m").classList.toggle("open");
   }
+  const u=$("unp");if(u)u.onclick=logUnplanned;
 }
 
 document.body.addEventListener("click",e=>{
-  const b=e.target.closest("button");if(!b)return;
-  if(b.dataset.tab){tab=b.dataset.tab;render();return}
-  if(b.dataset.jdn&&b.classList.contains("day")){selJdn=+b.dataset.jdn;render();return}
-  if(b.dataset.cal){
-    const dir=+b.dataset.cal;
-    if(calMode==="ec"){let{y,m}=calAnchor.ec;m+=dir;if(m>13){m=1;y++}if(m<1){m=13;y--}calAnchor.ec={y,m}}
-    else{let{y,m}=calAnchor.gc;m+=dir;if(m>12){m=1;y++}if(m<1){m=12;y--}calAnchor.gc={y,m}}
-    render();return;
+  const el=e.target.closest("[data-go],[data-pick],[data-mo],[data-done],[data-skip],[data-menu],[data-tog],[data-del]");
+  if(!el)return;
+  if(el.dataset.go)return go(JSON.parse(el.dataset.go));
+  if(el.dataset.pick){selJdn=+el.dataset.pick;return go({name:"today"})}
+  if(el.dataset.mo){let{y,m}=anchor;m+=+el.dataset.mo;
+    if(m>13){m=1;y++}if(m<1){m=13;y--}anchor={y,m};return render()}
+  if(el.dataset.done)return setStatus(el.dataset.done,+el.dataset.j,ST.DONE,+el.dataset.p);
+  if(el.dataset.skip)return setStatus(el.dataset.skip,+el.dataset.j,ST.SKIPPED);
+  if(el.dataset.menu){
+    const tid=el.dataset.menu,j=+el.dataset.j;
+    $("dbody").innerHTML=`<h4>ተጨማሪ</h4><p>ስለዚህ ተግባር ምን ማድረግ ትፈልጋለህ?</p>
+      <div class="dacts" style="flex-direction:column;align-items:stretch;gap:8px">
+        <button class="ghost" id="m1">የተከናወነበትን ሰዓት አስተካክል</button>
+        <button class="ghost" id="m2">ወደ ሌላ ቀን አዛውር</button>
+      </div>`;
+    $("dlg").showModal();
+    $("m1").onclick=()=>{$("dlg").close();editActual(tid,j)};
+    $("m2").onclick=()=>{$("dlg").close();reschedule(tid,j)};
+    return;
   }
-  if(b.dataset.mode){calMode=b.dataset.mode;render();return}
-  if(b.dataset.bpf){bpFilter=b.dataset.bpf;render();return}
-  if(b.dataset.done){setStatus(b.dataset.done,+b.dataset.jdn,STATUS.DONE,+b.dataset.at,+b.dataset.dur);return}
-  if(b.dataset.skip){setStatus(b.dataset.skip,+b.dataset.jdn,STATUS.SKIPPED);return}
-  if(b.dataset.resc){reschedule(b.dataset.resc,+b.dataset.jdn);return}
-  if(b.dataset.delbp){const i=tasks.findIndex(t=>t.id===b.dataset.delbp);if(i>=0)tasks.splice(i,1);render();return}
+  if(el.dataset.tog){const k=el.dataset.tog;
+    disabled.has(k)?disabled.delete(k):disabled.add(k);return render()}
+  if(el.dataset.del){const i=tasks.findIndex(t=>t.id===el.dataset.del);
+    if(i>=0)tasks.splice(i,1);return render()}
 });
-$("nowt").addEventListener("change",e=>{const v=parseTime(e.target.value);
-  if(v!=null){nowMin=v;render()}});
-
+$("nowt").addEventListener("change",e=>{const v=parseT(e.target.value);if(v!=null){nowMin=v;render()}});
 render();
 </script>
 </body>
