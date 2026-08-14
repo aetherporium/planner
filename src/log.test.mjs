@@ -83,7 +83,7 @@ describe("default tasks", () => {
   it("keeps every default atomic — one activity per task", () => {
     for (const t of DEFAULT_TASKS) {
       expect(t.title).not.toMatch(/[&+]| and /i);
-      expect(t.titleEn).not.toMatch(/[&+]| and /i);
+      expect(t.titleAm).not.toMatch(/[&+]| and /i);
     }
   });
   it("enables all defaults out of the box", () => {

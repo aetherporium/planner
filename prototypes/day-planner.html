@@ -1,189 +1,237 @@
 <!doctype html>
-<html lang="am">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>እቅድ</title>
+<title>Planner</title>
 <style>
 :root{
-  --ink:#16181d;--body:#4a4f5a;--muted:#7b8290;--faint:#a8aeba;
-  --line:#e8eaef;--hair:#f1f3f6;--bg:#faf9f7;--panel:#fff;
-  --accent:#1f6f5c;--accent-2:#2d8a73;--soft:#eaf4f1;--ring:#cde5dd;
-  --gold:#a8813a;--goldsoft:#faf3e6;--rose:#a44a3f;--rosesoft:#fbeeec;
-  --r:14px;--rs:10px;
-  --sh:0 1px 2px rgba(20,25,35,.04),0 4px 14px rgba(20,25,35,.05);
+  /* type scale — 1.200 minor third, 16px base */
+  --f-xs:11.5px; --f-sm:13.3px; --f-base:16px; --f-md:19.2px; --f-lg:23px; --f-xl:27.6px;
+  --lh-tight:1.25; --lh-snug:1.4; --lh-base:1.6;
+  --ls-tight:-0.02em; --ls-normal:0; --ls-wide:0.04em;
+
+  --ink:#15171c; --body:#474c57; --muted:#767c89; --faint:#a4aab5;
+  --line:#e7e9ee; --hair:#f0f2f5; --bg:#fbfaf8; --panel:#fff;
+  --accent:#1d6b58; --accent-h:#175544; --soft:#e9f3f0; --ring:#c7e2da;
+  --gold:#9c7a34; --goldsoft:#f9f2e4; --rose:#9e4638; --rosesoft:#faece9;
+  --r:14px; --rs:10px; --rx:8px;
+  --sh:0 1px 2px rgba(20,25,35,.04),0 3px 12px rgba(20,25,35,.045);
+  --sh-lift:0 2px 6px rgba(20,25,35,.06),0 8px 24px rgba(20,25,35,.08);
 }
 *{box-sizing:border-box}
-html,body{margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
 body{
-  font:16px/1.65 "Noto Sans Ethiopic","Nyala",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;
+  margin:0;
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:var(--f-base); line-height:var(--lh-base);
+  color:var(--ink); background:var(--bg);
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  font-variant-numeric:tabular-nums;
 }
-button{font:inherit;cursor:pointer;color:inherit}
-input,select{font:inherit;padding:11px 13px;border:1px solid var(--line);border-radius:var(--rs);
-  background:#fff;color:var(--ink);width:100%}
+.am{font-family:"Noto Sans Ethiopic","Nyala","Abyssinica SIL",serif}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:none;padding:0}
+a{color:var(--accent);text-decoration:none}
+input,select{
+  font:inherit;font-size:var(--f-sm);padding:10px 12px;border:1px solid var(--line);
+  border-radius:var(--rs);background:#fff;color:var(--ink);width:100%;
+}
 input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
 ::placeholder{color:var(--faint)}
+svg{display:block;flex-shrink:0}
 
-.page{max-width:660px;margin:0 auto;padding:28px 20px 120px}
+.page{max-width:680px;margin:0 auto;padding:22px 20px 130px}
 
-/* ── breadcrumb / interlinked nav ── */
-.crumb{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--muted);
-  margin-bottom:20px;flex-wrap:wrap}
-.crumb a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;cursor:pointer}
+/* ── breadcrumb: real anchors ── */
+.crumb{display:flex;align-items:center;gap:6px;font-size:var(--f-sm);color:var(--muted);
+  margin-bottom:18px;flex-wrap:wrap;min-height:20px}
+.crumb a{border-bottom:1px solid transparent;transition:border-color .12s}
 .crumb a:hover{border-bottom-color:var(--accent)}
-.crumb .sep{color:var(--faint)}
+.crumb .cur{color:var(--body)}
+.crumb svg{color:var(--faint)}
 
-h1{font-size:27px;margin:0;letter-spacing:-.01em;font-weight:700;line-height:1.25}
-.sub{color:var(--muted);font-size:14.5px;margin:5px 0 0}
-.hero{margin-bottom:24px}
+.hero{margin-bottom:20px}
+h1{font-size:var(--f-xl);margin:0;font-weight:680;letter-spacing:var(--ls-tight);line-height:var(--lh-tight)}
+.sub{color:var(--muted);font-size:var(--f-sm);margin:6px 0 0;line-height:var(--lh-snug)}
+.sub .am{font-size:14px}
+h2{font-size:var(--f-xs);text-transform:uppercase;letter-spacing:var(--ls-wide);
+  color:var(--faint);font-weight:650;margin:26px 0 10px}
 
-/* ── the day rail ── */
+/* ── day rail ── */
 .rail{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
   overflow:hidden;box-shadow:var(--sh)}
-.slot{display:flex;gap:13px;padding:14px 16px;border-bottom:1px solid var(--hair);align-items:flex-start}
+.slot{display:flex;gap:12px;padding:13px 15px;border-bottom:1px solid var(--hair);align-items:flex-start}
 .slot:last-child{border-bottom:none}
-.slot.past{background:#fcfcfb}
-.slot.past .name{color:var(--body)}
+.slot.past{background:#fcfcfa}
 .slot.now{background:var(--soft);box-shadow:inset 3px 0 0 var(--accent)}
-.tcol{width:52px;flex-shrink:0;padding-top:1px}
-.tp{font-variant-numeric:tabular-nums;font-size:14px;color:var(--body);font-weight:600;letter-spacing:-.01em}
-.ta{font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--accent);margin-top:1px}
+.tcol{width:50px;flex-shrink:0;padding-top:1px}
+.tp{font-size:var(--f-sm);font-weight:620;color:var(--body);letter-spacing:var(--ls-tight)}
+.ta{font-size:var(--f-xs);color:var(--accent);margin-top:2px;display:flex;align-items:center;gap:3px}
 .mid{flex:1;min-width:0}
-.name{font-size:16px;line-height:1.4;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.name.done{color:var(--faint);text-decoration:line-through;text-decoration-thickness:1px}
-.name.skip{color:var(--faint)}
-.det{font-size:13px;color:var(--muted);margin-top:3px;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
-.det .dot{color:var(--faint)}
-.logged{font-size:12px;color:var(--faint);margin-top:3px}
+.nm{font-size:15.4px;line-height:var(--lh-snug);display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:480}
+.nm a{color:var(--ink);border-bottom:1px solid transparent}
+.nm a:hover{color:var(--accent);border-bottom-color:var(--ring)}
+.nm.done a,.nm.done{color:var(--faint);text-decoration:line-through;text-decoration-thickness:1px}
+.nm.skip a,.nm.skip{color:var(--faint)}
+.det{font-size:var(--f-sm);color:var(--muted);margin-top:2px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.det .sep{color:var(--faint)}
+.lg{font-size:var(--f-xs);color:var(--faint);margin-top:3px;display:flex;align-items:center;gap:4px}
 
-.chip{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);
-  background:#fff;color:var(--muted);white-space:nowrap;line-height:1.6}
+.chip{font-size:var(--f-xs);padding:1px 7px;border-radius:99px;border:1px solid var(--line);
+  background:#fff;color:var(--muted);white-space:nowrap;line-height:1.65;font-weight:500}
 .chip.def{background:var(--soft);color:var(--accent);border-color:var(--ring)}
-.chip.unp{background:var(--goldsoft);color:var(--gold);border-color:#eddfc2}
-.chip.mv{background:var(--rosesoft);color:var(--rose);border-color:#f0d5d1}
+.chip.unp{background:var(--goldsoft);color:var(--gold);border-color:#ecdfc4}
+.chip.mv{background:var(--rosesoft);color:var(--rose);border-color:#efd4cf}
 .chip.off{background:var(--hair);color:var(--faint)}
 
-.acts{display:flex;gap:6px;flex-shrink:0;align-items:center}
-.b{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;
-  font-size:13px;color:var(--body);transition:.12s}
+.acts{display:flex;gap:5px;flex-shrink:0;align-items:center}
+.b{border:1px solid var(--line);background:#fff;border-radius:var(--rx);padding:6px 11px;
+  font-size:var(--f-sm);color:var(--body);font-weight:520;transition:.12s;display:flex;align-items:center;gap:5px}
 .b:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
-.b:disabled{opacity:.32;cursor:not-allowed}
-.b.yes{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
-.b.no{background:var(--hair);border-color:var(--line);color:var(--body);font-weight:600}
-.b.icon{padding:6px 10px}
+.b:disabled{opacity:.3;cursor:not-allowed}
+.b.yes{background:var(--accent);border-color:var(--accent);color:#fff}
+.b.no{background:var(--hair);color:var(--body)}
+.b.ic{padding:6px 8px}
+.b.lg{padding:10px 18px;border-radius:var(--rs);font-size:var(--f-base)}
 
-/* gaps */
-.gap{display:flex;gap:13px;padding:9px 16px;font-size:13px;color:var(--faint);
-  background:#fcfcfb;border-bottom:1px solid var(--hair);align-items:center}
-.gap .tcol{font-variant-numeric:tabular-nums;font-size:12px}
+.gap{display:flex;gap:12px;padding:8px 15px;font-size:var(--f-sm);color:var(--faint);
+  background:#fcfcfa;border-bottom:1px solid var(--hair);align-items:center}
+.gap .tcol{font-size:var(--f-xs)}
+.gap .gi{display:flex;align-items:center;gap:6px}
 .gap.travel{background:var(--goldsoft);color:var(--gold)}
 .gap.overlap{background:var(--rosesoft);color:var(--rose)}
 
-/* quick add */
+/* ── quick add ── */
 .qa{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
-  padding:16px;margin-top:18px;box-shadow:var(--sh)}
-.qarow{display:flex;gap:9px}
-.qarow input[type=text]{flex:1}
-.qarow .b.yes{padding:11px 20px;border-radius:var(--rs)}
-.expand{background:none;border:none;color:var(--accent);font-size:13.5px;padding:10px 0 0;
-  display:block;text-align:right;width:100%}
-.more{display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--hair);
+  padding:15px;margin-top:16px;box-shadow:var(--sh)}
+.qarow{display:flex;gap:8px}
+.qarow input{flex:1}
+.disc{display:flex;align-items:center;gap:5px;color:var(--accent);font-size:var(--f-sm);
+  padding:9px 0 0;font-weight:520}
+.disc svg{transition:transform .15s}
+.disc[aria-expanded=true] svg{transform:rotate(90deg)}
+.more{display:none;margin-top:12px;padding-top:13px;border-top:1px solid var(--hair);
   grid-template-columns:1fr 1fr;gap:10px}
 .more.open{display:grid}
 .more .full{grid-column:1/-1}
-.lbl{font-size:12px;color:var(--muted);margin-bottom:5px;display:block}
+.lbl{font-size:var(--f-xs);color:var(--muted);margin-bottom:4px;display:block;font-weight:520}
 
-/* link cards */
-.links{display:grid;gap:10px;margin-top:22px}
-.lk{display:flex;align-items:center;gap:13px;background:var(--panel);border:1px solid var(--line);
-  border-radius:var(--r);padding:15px 17px;text-align:right;width:100%;box-shadow:var(--sh);transition:.14s}
-.lk:hover{border-color:var(--accent);transform:translateY(-1px)}
-.lk .ic{width:38px;height:38px;border-radius:11px;background:var(--soft);display:grid;
-  place-items:center;flex-shrink:0;font-size:18px}
-.lk .lt{flex:1}
-.lk .lt b{display:block;font-size:15.5px;font-weight:600}
-.lk .lt span{font-size:13px;color:var(--muted)}
-.lk .ar{color:var(--faint);font-size:19px}
+/* ── nav cards ── */
+.cards{display:grid;gap:9px}
+.card{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh);transition:.14s;color:inherit}
+.card:hover{border-color:var(--accent);box-shadow:var(--sh-lift);transform:translateY(-1px)}
+.card .ci{width:34px;height:34px;border-radius:9px;background:var(--soft);color:var(--accent);
+  display:grid;place-items:center;flex-shrink:0}
+.card .ct{flex:1;min-width:0}
+.card .ct b{display:block;font-size:15.4px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+.card .ct span{font-size:var(--f-sm);color:var(--muted)}
+.card .cn{font-size:var(--f-sm);color:var(--accent);background:var(--soft);padding:2px 10px;
+  border-radius:99px;border:1px solid var(--ring);font-weight:560}
+.card .cn.zero{background:var(--hair);color:var(--faint);border-color:var(--line)}
+.card .ca{color:var(--faint)}
 
-/* calendar */
+/* ── calendar ── */
 .cal{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
   overflow:hidden;box-shadow:var(--sh)}
-.calhd{display:flex;align-items:center;gap:10px;padding:16px}
+.calhd{display:flex;align-items:center;gap:10px;padding:15px}
 .calhd .mo{flex:1;text-align:center}
-.calhd .mo b{display:block;font-size:17px;font-weight:700}
-.calhd .mo span{font-size:12.5px;color:var(--muted)}
-.nav{width:34px;height:34px;border:1px solid var(--line);border-radius:9px;background:#fff;
-  display:grid;place-items:center;color:var(--body);flex-shrink:0}
-.nav:hover{border-color:var(--accent);color:var(--accent)}
-.dows{display:grid;grid-template-columns:repeat(7,1fr);padding:0 10px 6px}
-.dows div{text-align:center;font-size:11px;color:var(--faint);font-weight:600}
-.days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:0 10px 14px}
-.cell{aspect-ratio:1;border:1px solid transparent;border-radius:10px;background:none;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;position:relative;padding:0}
+.calhd .mo b{display:block;font-size:var(--f-md);font-weight:660;letter-spacing:-.01em}
+.calhd .mo span{font-size:var(--f-sm);color:var(--muted)}
+.nb{width:33px;height:33px;border:1px solid var(--line);border-radius:9px;display:grid;
+  place-items:center;color:var(--body);background:#fff;flex-shrink:0}
+.nb:hover{border-color:var(--accent);color:var(--accent)}
+.dows{display:grid;grid-template-columns:repeat(7,1fr);padding:0 10px 5px}
+.dows div{text-align:center;font-size:var(--f-xs);color:var(--faint);font-weight:600}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:0 10px 13px}
+.cell{aspect-ratio:1;border:1px solid transparent;border-radius:9px;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;position:relative;color:inherit}
 .cell:hover{background:var(--hair)}
-.cell .p{font-size:15px;font-variant-numeric:tabular-nums;line-height:1.15;font-weight:600}
-.cell .s{font-size:9.5px;color:var(--faint);line-height:1.1;font-variant-numeric:tabular-nums}
+.cell .p{font-size:15px;font-weight:600;line-height:1.15}
+.cell .s{font-size:9.5px;color:var(--faint);line-height:1.1}
 .cell.wknd .p{color:var(--rose)}
 .cell.today{border-color:var(--accent)}
 .cell.sel{background:var(--accent)}
-.cell.sel .p,.cell.sel .s{color:#fff}
-.cell.sel.wknd .p{color:#fff}
-.cell.hol::after{content:"";position:absolute;top:5px;left:5px;width:5px;height:5px;
+.cell.sel .p,.cell.sel .s,.cell.sel.wknd .p{color:#fff}
+.cell.hol::after{content:"";position:absolute;top:5px;right:5px;width:5px;height:5px;
   border-radius:50%;background:var(--gold)}
-.callg{display:flex;gap:14px;padding:12px 16px;border-top:1px solid var(--hair);
-  font-size:12px;color:var(--muted);flex-wrap:wrap}
-.callg i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:5px;background:var(--gold)}
+.callg{display:flex;gap:14px;padding:11px 15px;border-top:1px solid var(--hair);
+  font-size:var(--f-xs);color:var(--muted);flex-wrap:wrap;align-items:center}
+.callg i{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px;background:var(--gold)}
 
-/* blueprint index */
-.bp{display:grid;gap:10px}
-.bpr{display:flex;align-items:center;gap:13px;background:var(--panel);border:1px solid var(--line);
-  border-radius:var(--r);padding:15px 17px;width:100%;text-align:right;box-shadow:var(--sh);transition:.14s}
-.bpr:hover{border-color:var(--accent);transform:translateY(-1px)}
-.bpr .n{flex:1}
-.bpr .n b{display:block;font-size:15.5px;font-weight:600}
-.bpr .n span{font-size:13px;color:var(--muted)}
-.bpr .c{font-size:13px;color:var(--accent);background:var(--soft);padding:3px 11px;
-  border-radius:99px;border:1px solid var(--ring);font-variant-numeric:tabular-nums}
-.bpr .c.zero{background:var(--hair);color:var(--faint);border-color:var(--line)}
+/* ── task detail ── */
+.kv{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  overflow:hidden;box-shadow:var(--sh)}
+.kvr{display:flex;gap:14px;padding:13px 16px;border-bottom:1px solid var(--hair);align-items:center}
+.kvr:last-child{border-bottom:none}
+.kvr .k{width:104px;flex-shrink:0;font-size:var(--f-sm);color:var(--muted);display:flex;align-items:center;gap:6px}
+.kvr .v{flex:1;font-size:15px}
+.kvr .v.mono{font-weight:600;letter-spacing:var(--ls-tight)}
+.kvr .v.none{color:var(--faint);font-weight:400}
 
-.hint{font-size:13.5px;color:var(--muted);background:var(--soft);border:1px solid var(--ring);
-  border-radius:var(--rs);padding:12px 14px;margin-top:16px;line-height:1.6}
-.empty{padding:34px 20px;text-align:center;color:var(--faint);font-size:14.5px}
+.hint{font-size:var(--f-sm);color:var(--body);background:var(--soft);border:1px solid var(--ring);
+  border-radius:var(--rs);padding:11px 13px;margin-top:14px;line-height:var(--lh-base)}
+.empty{padding:30px 20px;text-align:center;color:var(--faint);font-size:var(--f-sm);line-height:var(--lh-base)}
 
-/* clock */
-.clock{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#16181d;
-  color:#fff;border-radius:99px;padding:8px 10px 8px 16px;display:flex;align-items:center;gap:10px;
-  box-shadow:0 10px 32px rgba(0,0,0,.26);z-index:50;font-size:13.5px}
-.clock span{color:#9aa3b2}
-.clock input{width:78px;background:#262a33;border:1px solid #363b47;color:#fff;
-  padding:5px 9px;border-radius:99px;font-size:13px;text-align:center}
-.clock input:focus{border-color:var(--accent-2);box-shadow:none}
+/* ── clock ── */
+.clock{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#15171c;
+  color:#fff;border-radius:99px;padding:7px 9px 7px 15px;display:flex;align-items:center;gap:9px;
+  box-shadow:0 8px 30px rgba(0,0,0,.25);z-index:50;font-size:var(--f-sm)}
+.clock span{color:#9ba2ae;display:flex;align-items:center;gap:6px}
+.clock input{width:74px;background:#25282f;border:1px solid #343841;color:#fff;
+  padding:4px 8px;border-radius:99px;font-size:var(--f-sm);text-align:center}
+.clock input:focus{border-color:var(--accent);box-shadow:none}
 
-dialog{border:none;border-radius:18px;padding:0;box-shadow:0 24px 70px rgba(0,0,0,.3);
-  max-width:400px;width:92vw;background:var(--panel)}
-dialog::backdrop{background:rgba(16,20,28,.5)}
-.dlg{padding:22px}
-.dlg h4{margin:0 0 6px;font-size:18px}
-.dlg p{margin:0 0 18px;font-size:14px;color:var(--muted);line-height:1.6}
-.frow{margin-bottom:12px}
-.dacts{display:flex;gap:9px;justify-content:flex-start;margin-top:20px}
-.ghost{background:#fff;border:1px solid var(--line);border-radius:var(--rs);padding:11px 18px;color:var(--body)}
+dialog{border:none;border-radius:16px;padding:0;box-shadow:0 22px 64px rgba(0,0,0,.28);
+  max-width:390px;width:92vw;background:var(--panel)}
+dialog::backdrop{background:rgba(16,20,28,.48)}
+.dlg{padding:20px}
+.dlg h4{margin:0 0 5px;font-size:var(--f-md);font-weight:640}
+.dlg p{margin:0 0 16px;font-size:var(--f-sm);color:var(--muted);line-height:var(--lh-base)}
+.frow{margin-bottom:11px}
+.dacts{display:flex;gap:8px;margin-top:18px}
+.ghost{background:#fff;border:1px solid var(--line);border-radius:var(--rs);
+  padding:10px 16px;color:var(--body);font-size:var(--f-sm);font-weight:520}
+.ghost:hover{border-color:var(--accent);color:var(--accent)}
 .solid{background:var(--accent);border:1px solid var(--accent);border-radius:var(--rs);
-  padding:11px 20px;color:#fff;font-weight:600}
+  padding:10px 18px;color:#fff;font-weight:600;font-size:var(--f-sm)}
+.solid:hover{background:var(--accent-h)}
+.stack{flex-direction:column;align-items:stretch}
+.stack .ghost{text-align:left;display:flex;align-items:center;gap:9px}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<g id="i-cal"><rect x="3" y="4.5" width="14" height="13" rx="2.5"/><path d="M3 8.5h14M7 2.5v3M13 2.5v3"/></g>
+<g id="i-map"><path d="M10 2.5 3.5 17l6.5-3.4 6.5 3.4z"/></g>
+<g id="i-check"><path d="M4 10.5l4 4 8-9"/></g>
+<g id="i-chev"><path d="M7.5 4.5l5.5 5.5-5.5 5.5"/></g>
+<g id="i-back"><path d="M12.5 4.5L7 10l5.5 5.5"/></g>
+<g id="i-clock"><circle cx="10" cy="10" r="7.2"/><path d="M10 5.8V10l2.8 1.8"/></g>
+<g id="i-pin"><path d="M10 17s5.5-5 5.5-9a5.5 5.5 0 1 0-11 0c0 4 5.5 9 5.5 9z"/><circle cx="10" cy="8" r="2"/></g>
+<g id="i-rest"><path d="M3 12.5h4l2-5 2.5 8 2-6.5 1.5 3.5h2"/></g>
+<g id="i-move"><path d="M3 8h11M10.5 4.5L14 8l-3.5 3.5M17 13H6M9.5 9.5 6 13l3.5 3.5"/></g>
+<g id="i-warn"><path d="M10 3.5 2.5 16.5h15z"/><path d="M10 8v3.5M10 14h.01"/></g>
+<g id="i-plus"><path d="M10 4v12M4 10h12"/></g>
+<g id="i-dots"><circle cx="4.5" cy="10" r="1.3"/><circle cx="10" cy="10" r="1.3"/><circle cx="15.5" cy="10" r="1.3"/></g>
+<g id="i-edit"><path d="M13.5 3.5 16.5 6.5 7 16H4v-3z"/></g>
+<g id="i-repeat"><path d="M4 8V6.5A2.5 2.5 0 0 1 6.5 4H15l-2.5-2.5M16 12v1.5a2.5 2.5 0 0 1-2.5 2.5H5l2.5 2.5"/></g>
+<g id="i-log"><path d="M5 3.5h10v13H5z"/><path d="M8 7.5h4M8 10.5h4M8 13.5h2.5"/></g>
+<g id="i-off"><path d="M10 3v7"/><path d="M15 5.5a7 7 0 1 1-10 0"/></g>
+</defs></svg>
+
 <div class="page" id="app"></div>
-<div class="clock"><span>አሁን</span><input type="time" id="nowt" value="14:00" /></div>
+<div class="clock"><span><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><use href="#i-clock"/></svg>now</span><input type="time" id="nowt" value="14:00" /></div>
 <dialog id="dlg"><div class="dlg" id="dbody"></div></dialog>
 
 <script type="module">
-// ═══ calendar core (mirrors src/calendar.mjs) ═══
+// ═══ calendar (mirrors src/calendar.mjs) ═══
 const EC_M=["መስከረም","ጥቅምት","ኅዳር","ታኅሣሥ","ጥር","የካቲት","መጋቢት","ሚያዝያ","ግንቦት","ሰኔ","ሐምሌ","ነሐሴ","ጳጉሜን"];
-const GC_M=["ጃንዩወሪ","ፌብሩወሪ","ማርች","ኤፕሪል","ሜይ","ጁን","ጁላይ","ኦገስት","ሴፕቴምበር","ኦክቶበር","ኖቬምበር","ዲሴምበር"];
-const DOW=["እሑድ","ሰኞ","ማክሰኞ","ረቡዕ","ሐሙስ","ዓርብ","ቅዳሜ"];
-const DOW2=["እሑ","ሰኞ","ማክ","ረቡ","ሐሙ","ዓር","ቅዳ"];
+const EC_M_EN=["Meskerem","Tikimt","Hidar","Tahsas","Tir","Yekatit","Megabit","Miyazia","Ginbot","Sene","Hamle","Nehase","Pagume"];
+const GC_M=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DOW=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const DOW_AM=["እሑድ","ሰኞ","ማክሰኞ","ረቡዕ","ሐሙስ","ዓርብ","ቅዳሜ"];
+const DOW2_AM=["እሑ","ሰኞ","ማክ","ረቡ","ሐሙ","ዓር","ቅዳ"];
 const EPOCH=1724220;
 const ecLeap=y=>((y%4)+4)%4===3;
 const ecLen=(y,m)=>m===13?(ecLeap(y)?6:5):30;
@@ -196,59 +244,60 @@ const e2j=(y,m,d)=>EPOCH+365*(y-1)+Math.floor(y/4)+30*(m-1)+d;
 const j2e=j=>{let y=Math.floor((j-EPOCH-1)/365.25)+1;
   while(e2j(y+1,1,1)<=j)y++;while(e2j(y,1,1)>j)y--;
   const n=j-e2j(y,1,1);return{y,m:Math.floor(n/30)+1,d:n%30+1}};
-const EC_H=[{m:1,d:1,n:"እንቁጣጣሽ"},{m:1,d:17,n:"መስቀል"},{m:4,d:29,n:"ገና"},{m:5,d:11,n:"ጥምቀት"},
-  {m:6,d:23,n:"ዓድዋ"},{m:8,d:23,n:"የሠራተኞች ቀን"},{m:8,d:27,n:"የአርበኞች ቀን"}];
-const GC_H=[{m:1,d:1,n:"አዲስ ዓመት (ግሪጎሪ)"},{m:12,d:25,n:"ገና (ግሪጎሪ)"}];
+const EC_H=[{m:1,d:1,n:"Enkutatash",am:"እንቁጣጣሽ"},{m:1,d:17,n:"Meskel",am:"መስቀል"},
+  {m:4,d:29,n:"Genna",am:"ገና"},{m:5,d:11,n:"Timkat",am:"ጥምቀት"},{m:6,d:23,n:"Adwa Victory Day",am:"ዓድዋ"},
+  {m:8,d:23,n:"Labour Day",am:"የሠራተኞች ቀን"},{m:8,d:27,n:"Patriots' Day",am:"የአርበኞች ቀን"}];
+const GC_H=[{m:1,d:1,n:"New Year's Day"},{m:12,d:25,n:"Christmas Day"}];
 const EXTRA={};
 const iso=({y,m,d})=>`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
 const day=j=>{const gc=j2g(j),ec=j2e(j),i=iso(gc);
-  const hol=[...EC_H.filter(h=>h.m===ec.m&&h.d===ec.d).map(h=>h.n),
-    ...GC_H.filter(h=>h.m===gc.m&&h.d===gc.d).map(h=>h.n),...(EXTRA[i]??[])];
+  const hol=[...EC_H.filter(h=>h.m===ec.m&&h.d===ec.d),...GC_H.filter(h=>h.m===gc.m&&h.d===gc.d),
+    ...(EXTRA[i]??[])];
   const dw=(j+1)%7;
-  return{jdn:j,iso:i,gc,ec,ecM:EC_M[ec.m-1],gcM:GC_M[gc.m-1],dow:dw,dowN:DOW[dw],
-    wknd:dw===0||dw===6,hol}};
+  return{jdn:j,iso:i,gc,ec,ecM:EC_M[ec.m-1],ecMEn:EC_M_EN[ec.m-1],gcM:GC_M[gc.m-1],
+    dow:dw,dowN:DOW[dw],dowAm:DOW_AM[dw],wknd:dw===0||dw===6,hol}};
 const dayG=(y,m,d)=>day(g2j(y,m,d));
 const dayE=(y,m,d)=>day(e2j(y,m,d));
 
-// ═══ blueprint (mirrors src/blueprint.mjs) ═══
+// ═══ blueprint ═══
 const fires=(r,d)=>{if(!r)return false;switch(r.kind){
   case"everyday":return true;case"weekday":return !d.wknd;case"weekend":return d.wknd;
   case"dow":return d.dow===r.dow;case"gc-monthday":return d.gc.d===r.day;
   case"ec-monthday":return d.ec.d===r.day;
-  case"holiday":return r.name?d.hol.includes(r.name):d.hol.length>0;
+  case"holiday":return r.name?d.hol.some(h=>h.n===r.name):d.hol.length>0;
   case"dates":return r.dates.includes(d.iso);default:return false}};
 const RULES=[
-  {id:"everyday",label:"በየቀኑ",desc:"ሁሉም ቀን",rule:{kind:"everyday"}},
-  {id:"weekday",label:"የሥራ ቀናት",desc:"ሰኞ – ዓርብ",rule:{kind:"weekday"}},
-  {id:"weekend",label:"ቅዳሜና እሑድ",desc:"ሳምንቱ መጨረሻ",rule:{kind:"weekend"}},
-  {id:"dow0",label:"በየእሑድ",desc:"በየሳምንቱ እሑድ",rule:{kind:"dow",dow:0}},
-  {id:"dow1",label:"በየሰኞ",desc:"በየሳምንቱ ሰኞ",rule:{kind:"dow",dow:1}},
-  {id:"dow5",label:"በየዓርብ",desc:"በየሳምንቱ ዓርብ",rule:{kind:"dow",dow:5}},
-  {id:"ec1",label:"በየወሩ 1",desc:"የኢትዮጵያ ወር መጀመሪያ",rule:{kind:"ec-monthday",day:1}},
-  {id:"gc1",label:"በየወሩ 1 (ግሪጎሪ)",desc:"የግሪጎሪ ወር መጀመሪያ",rule:{kind:"gc-monthday",day:1}},
-  {id:"holiday",label:"በዓላት",desc:"ሁሉም በዓል",rule:{kind:"holiday"}},
+  {id:"everyday",label:"Every day",desc:"All seven days",rule:{kind:"everyday"}},
+  {id:"weekday",label:"Weekdays",desc:"Monday to Friday",rule:{kind:"weekday"}},
+  {id:"weekend",label:"Weekends",desc:"Saturday and Sunday",rule:{kind:"weekend"}},
+  {id:"dow0",label:"Every Sunday",desc:"Weekly",rule:{kind:"dow",dow:0}},
+  {id:"dow1",label:"Every Monday",desc:"Weekly",rule:{kind:"dow",dow:1}},
+  {id:"dow5",label:"Every Friday",desc:"Weekly",rule:{kind:"dow",dow:5}},
+  {id:"ec1",label:"Day 1 of Ethiopian month",desc:"Monthly · ኢትዮጵያ",rule:{kind:"ec-monthday",day:1}},
+  {id:"gc1",label:"Day 1 of Gregorian month",desc:"Monthly",rule:{kind:"gc-monthday",day:1}},
+  {id:"holiday",label:"Holidays",desc:"Any holiday, either calendar",rule:{kind:"holiday"}},
 ];
 const ruleFromFreq=(f,d)=>({once:null,everyday:{kind:"everyday"},weekday:{kind:"weekday"},
-  weekend:{kind:"weekend"},weekly:{kind:"dow",dow:d.dow},
-  ecmonth:{kind:"ec-monthday",day:d.ec.d},gcmonth:{kind:"gc-monthday",day:d.gc.d},
-  holiday:{kind:"holiday"}})[f]??null;
-const ruleLabel=r=>{if(!r)return"አንድ ጊዜ";
-  const m=RULES.find(x=>JSON.stringify(x.rule)===JSON.stringify(r));
-  if(m)return m.label;
-  switch(r.kind){case"dow":return"በየ"+DOW[r.dow];
-    case"ec-monthday":return`በየወሩ ${r.day}`;case"gc-monthday":return`በየወሩ ${r.day} (ግሪጎሪ)`;
-    default:return"ልማድ"}};
+  weekend:{kind:"weekend"},weekly:{kind:"dow",dow:d.dow},ecmonth:{kind:"ec-monthday",day:d.ec.d},
+  gcmonth:{kind:"gc-monthday",day:d.gc.d},holiday:{kind:"holiday"}})[f]??null;
+const ruleKey=r=>r?JSON.stringify(r):null;
+const ruleLabel=r=>{if(!r)return"One-off";
+  const m=RULES.find(x=>ruleKey(x.rule)===ruleKey(r));if(m)return m.label;
+  switch(r.kind){case"dow":return"Every "+DOW[r.dow];
+    case"ec-monthday":return`Day ${r.day} of Ethiopian month`;
+    case"gc-monthday":return`Day ${r.day} of Gregorian month`;default:return"Custom"}};
+const ruleRouteId=r=>{const m=RULES.find(x=>ruleKey(x.rule)===ruleKey(r));return m?m.id:null};
 
-// ═══ log (mirrors src/log.mjs) ═══
+// ═══ log ═══
 const ST={UNKNOWN:"unknown",DONE:"done",SKIPPED:"skipped",RESCHEDULED:"rescheduled"};
 const fmtT=m=>m==null?"—":`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
-const fmtD=m=>m==null?"—":m<60?`${m}ደ`:`${Number.isInteger(m/60)?m/60:(m/60).toFixed(1)}ሰ`;
+const fmtD=m=>m==null?"—":m<60?`${m} min`:(Number.isInteger(m/60)?`${m/60} hr`:`${(m/60).toFixed(1)} hr`);
 const parseT=s=>{const m=/^(\d{1,2}):(\d{2})$/.exec(String(s).trim());
   if(!m)return null;const h=+m[1],i=+m[2];return h>23||i>59?null:h*60+i};
 const canDo=({dayJdn,actualMin},now)=>{
-  if(dayJdn>now.jdn)return{ok:false,why:"ያ ቀን ገና አልደረሰም።"};
+  if(dayJdn>now.jdn)return{ok:false,why:"That day hasn't happened yet."};
   if(dayJdn===now.jdn&&actualMin!=null&&actualMin>now.minutes)
-    return{ok:false,why:`አሁን ${fmtT(now.minutes)} ነው። ${fmtT(actualMin)} ላይ የተደረገ ነገር ገና መመዝገብ አይቻልም።`};
+    return{ok:false,why:`It's ${fmtT(now.minutes)} now. You can't record something that happens at ${fmtT(actualMin)} yet.`};
   return{ok:true}};
 const GAP={REST:"rest",TRAVEL:"travel"};
 const timeline=(ts,{s0=300,s1=1440}={})=>{
@@ -267,40 +316,59 @@ const timeline=(ts,{s0=300,s1=1440}={})=>{
 const statusOf=(es,tid,j)=>{const f=es.filter(e=>e.taskId===tid&&e.dayJdn===j);
   return f.length?f[f.length-1]:null};
 
-// ═══ defaults (mirrors src/defaults.mjs) — ATOMIC: one activity each ═══
+// ═══ defaults — atomic, one activity each ═══
 const DEFAULTS=[
-  {key:"wake",title:"መነሳት",startMin:360,duration:5,place:"ቤት"},
-  {key:"breakfast",title:"ቁርስ",startMin:420,duration:30,place:"ቤት"},
-  {key:"lunch",title:"ምሳ",startMin:750,duration:45,place:"ቤት"},
-  {key:"dinner",title:"እራት",startMin:1170,duration:45,place:"ቤት"},
-  {key:"sleep",title:"እንቅልፍ",startMin:1350,duration:450,place:"ቤት"},
+  {key:"wake",title:"Wake",am:"መነሳት",startMin:360,duration:5,place:"Home"},
+  {key:"breakfast",title:"Breakfast",am:"ቁርስ",startMin:420,duration:30,place:"Home"},
+  {key:"lunch",title:"Lunch",am:"ምሳ",startMin:750,duration:45,place:"Home"},
+  {key:"dinner",title:"Dinner",am:"እራት",startMin:1170,duration:45,place:"Home"},
+  {key:"sleep",title:"Sleep",am:"እንቅልፍ",startMin:1350,duration:450,place:"Home"},
 ];
 
-// ═══ state — NO seeded history. Empty until the user acts. ═══
+// ═══ state — starts empty. No invented history. ═══
 let uid=0;const nid=p=>`${p}${++uid}`;
 const TODAY=dayG(2026,8,14);
 let nowMin=14*60;
-let route={name:"today"};
-let selJdn=TODAY.jdn;
-let anchor={...j2e(TODAY.jdn)};
 const disabled=new Set();
 const tasks=DEFAULTS.map(d=>({...d,id:"default:"+d.key,rule:{kind:"everyday"},isDefault:true}));
 const entries=[];
 
 const now=()=>({jdn:TODAY.jdn,minutes:nowMin});
-const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const $=i=>document.getElementById(i);
 const live=t=>!(t.isDefault&&disabled.has(t.key));
 const forDay=d=>tasks.filter(t=>live(t)&&(t.rule?fires(t.rule,d):t.onJdn===d.jdn))
   .sort((a,b)=>(a.startMin??0)-(b.startMin??0));
-const go=r=>{route=r;window.scrollTo(0,0);render()};
+const icon=(id,sz=17,sw=1.7)=>`<svg width="${sz}" height="${sz}" viewBox="0 0 20 20" fill="none"
+  stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><use href="#${id}"/></svg>`;
+
+// ═══ router — hash based, so browser back/forward works ═══
+const parseHash=()=>{
+  const h=location.hash.replace(/^#\/?/,"");
+  if(!h)return{name:"today",jdn:TODAY.jdn};
+  const [a,b]=h.split("/");
+  if(a==="day")return{name:"today",jdn:+b||TODAY.jdn};
+  if(a==="calendar")return{name:"calendar",anchor:b||null};
+  if(a==="blueprints")return{name:"blueprints"};
+  if(a==="blueprint")return{name:"blueprint",id:b};
+  if(a==="task")return{name:"task",id:decodeURIComponent(b||"")};
+  return{name:"today",jdn:TODAY.jdn};
+};
+const href=r=>{
+  switch(r.name){
+    case"today":return r.jdn&&r.jdn!==TODAY.jdn?`#/day/${r.jdn}`:"#/";
+    case"calendar":return r.anchor?`#/calendar/${r.anchor}`:"#/calendar";
+    case"blueprints":return"#/blueprints";
+    case"blueprint":return`#/blueprint/${r.id}`;
+    case"task":return`#/task/${encodeURIComponent(r.id)}`;
+    default:return"#/"}};
+let route=parseHash();
+let selJdn=route.jdn??TODAY.jdn;
 
 // ═══ actions ═══
 function setStatus(tid,j,st,plannedMin){
-  if(st===ST.DONE){
-    const c=canDo({dayJdn:j,actualMin:plannedMin},now());
-    if(!c.ok)return say("ገና አልተቻለም",c.why);
-  }
+  if(st===ST.DONE){const c=canDo({dayJdn:j,actualMin:plannedMin},now());
+    if(!c.ok)return say("Not yet",c.why)}
   const prev=statusOf(entries,tid,j);
   if(prev&&prev.status===st){entries.splice(entries.indexOf(prev),1);return render()}
   entries.push({id:nid("e"),taskId:tid,dayJdn:j,status:st,plannedMin:plannedMin??null,
@@ -309,296 +377,315 @@ function setStatus(tid,j,st,plannedMin){
   render();
 }
 function say(h,p){$("dbody").innerHTML=`<h4>${esc(h)}</h4><p>${esc(p)}</p>
-  <div class="dacts"><button class="solid" id="k">እሺ</button></div>`;
+  <div class="dacts"><button class="solid" id="k">Got it</button></div>`;
   $("dlg").showModal();$("k").onclick=()=>$("dlg").close()}
-
 function editActual(tid,j){
-  const t=tasks.find(x=>x.id===tid);const e=statusOf(entries,tid,j);
-  $("dbody").innerHTML=`<h4>የተከናወነበት ሰዓት</h4>
-    <p>የታቀደው ${fmtT(t?.startMin)} ነበር። በትክክል የተከናወነው መቼ ነው?</p>
+  const t=tasks.find(x=>x.id===tid),e=statusOf(entries,tid,j);
+  $("dbody").innerHTML=`<h4>When did it actually happen?</h4>
+    <p>Planned for ${fmtT(t?.startMin)}. Reality can differ — that's the point.</p>
     <div class="frow"><input type="time" id="ta" value="${fmtT(e?.actualMin??t?.startMin??0)}" /></div>
-    <div class="dacts"><button class="ghost" id="c">ተወው</button><button class="solid" id="s">አስቀምጥ</button></div>`;
+    <div class="dacts"><button class="ghost" id="c">Cancel</button><button class="solid" id="s">Save</button></div>`;
   $("dlg").showModal();$("c").onclick=()=>$("dlg").close();
   $("s").onclick=()=>{const v=parseT($("ta").value);if(v==null)return;
     const c=canDo({dayJdn:j,actualMin:v},now());
-    if(!c.ok){$("dlg").close();return say("ገና አልተቻለም",c.why)}
+    if(!c.ok){$("dlg").close();return say("Not yet",c.why)}
     entries.push({id:nid("e"),taskId:tid,dayJdn:j,status:ST.DONE,plannedMin:t?.startMin??null,
       actualMin:v,durationMin:null,unplanned:false,loggedAtJdn:now().jdn,loggedAtMin:now().minutes});
-    $("dlg").close();render()};
-}
+    $("dlg").close();render()}}
 function logUnplanned(){
   const d=day(selJdn);
-  $("dbody").innerHTML=`<h4>ያልታቀደ ነገር መዝግብ</h4>
-    <p>አልታቀደም ነበር — ችግር የለም። ይህ የሆነውን ይመዘግባል፣ አይቀጣም።</p>
-    <div class="frow"><span class="lbl">ምን</span><input id="u_t" placeholder="ለምሳሌ፦ ቧንቧ ጠገንኩ" /></div>
-    <div class="frow"><span class="lbl">የተከናወነበት ሰዓት</span><input type="time" id="u_a" value="${fmtT(Math.min(nowMin,1439))}" /></div>
-    <div class="frow"><span class="lbl">ደቂቃ</span><input type="number" id="u_d" value="30" min="0" step="5" /></div>
-    <div class="dacts"><button class="ghost" id="c">ተወው</button><button class="solid" id="s">መዝግብ</button></div>`;
+  $("dbody").innerHTML=`<h4>Record something you did</h4>
+    <p>It wasn't planned. That's fine — this records what happened, it doesn't score you.</p>
+    <div class="frow"><span class="lbl">What</span><input id="u_t" placeholder="e.g. Fixed the tap" /></div>
+    <div class="frow"><span class="lbl">Actually happened at</span><input type="time" id="u_a" value="${fmtT(Math.min(nowMin,1439))}" /></div>
+    <div class="frow"><span class="lbl">Minutes</span><input type="number" id="u_d" value="30" min="0" step="5" /></div>
+    <div class="dacts"><button class="ghost" id="c">Cancel</button><button class="solid" id="s">Record</button></div>`;
   $("dlg").showModal();$("c").onclick=()=>$("dlg").close();
   $("s").onclick=()=>{const ttl=$("u_t").value.trim();if(!ttl)return;
-    const a=parseT($("u_a").value)??0;
-    const c=canDo({dayJdn:d.jdn,actualMin:a},now());
-    if(!c.ok){$("dlg").close();return say("ገና አልተቻለም",c.why)}
-    entries.push({id:nid("e"),taskId:nid("x"),dayJdn:d.jdn,status:ST.DONE,plannedMin:null,
-      actualMin:a,durationMin:+$("u_d").value||0,unplanned:true,title:ttl,
-      loggedAtJdn:now().jdn,loggedAtMin:now().minutes});
-    $("dlg").close();render()};
-}
+    const a=parseT($("u_a").value)??0,c=canDo({dayJdn:d.jdn,actualMin:a},now());
+    if(!c.ok){$("dlg").close();return say("Not yet",c.why)}
+    entries.push({id:nid("e"),taskId:nid("x"),dayJdn:d.jdn,status:ST.DONE,plannedMin:null,actualMin:a,
+      durationMin:+$("u_d").value||0,unplanned:true,title:ttl,loggedAtJdn:now().jdn,loggedAtMin:now().minutes});
+    $("dlg").close();render()}}
 function reschedule(tid,j){
-  $("dbody").innerHTML=`<h4>ወደ ሌላ ቀን አዛውር</h4>
-    <p>ማዛወር ውድቀት አይደለም። መቼ እንደሚሆን ብቻ ንገረኝ።</p>
+  $("dbody").innerHTML=`<h4>Move to another day</h4>
+    <p>Moving something isn't failing it. Just say when.</p>
     <div class="frow"><input type="date" id="r_d" value="${day(j+1).iso}" /></div>
-    <div class="dacts"><button class="ghost" id="c">ተወው</button><button class="solid" id="s">አዛውር</button></div>`;
+    <div class="dacts"><button class="ghost" id="c">Cancel</button><button class="solid" id="s">Move</button></div>`;
   $("dlg").showModal();$("c").onclick=()=>$("dlg").close();
   $("s").onclick=()=>{const[y,m,dd]=$("r_d").value.split("-").map(Number);
     entries.push({id:nid("e"),taskId:tid,dayJdn:j,status:ST.RESCHEDULED,plannedMin:null,actualMin:null,
       durationMin:null,unplanned:false,movedToJdn:g2j(y,m,dd),loggedAtJdn:now().jdn,loggedAtMin:now().minutes});
-    $("dlg").close();render()};
-}
+    $("dlg").close();render()}}
 
-// ═══ shared pieces ═══
-const crumb=parts=>`<nav class="crumb">${parts.map((p,i)=>
-  (i?`<span class="sep">›</span>`:"")+(p.go?`<a data-go='${esc(JSON.stringify(p.go))}'>${esc(p.t)}</a>`
-  :`<span>${esc(p.t)}</span>`)).join("")}</nav>`;
+// ═══ pieces ═══
+const crumb=ps=>`<nav class="crumb">${ps.map((p,i)=>
+  (i?icon("i-chev",13,2):"")+(p.to?`<a href="${href(p.to)}">${esc(p.t)}</a>`
+  :`<span class="cur">${esc(p.t)}</span>`)).join("")}</nav>`;
 
 function slot(t,d,cls){
-  const e=statusOf(entries,t.id,d.jdn);
-  const st=e?e.status:ST.UNKNOWN;
+  const e=statusOf(entries,t.id,d.jdn),st=e?e.status:ST.UNKNOWN;
   const future=d.jdn>now().jdn||(d.jdn===now().jdn&&(t.startMin??0)>nowMin);
   const drift=e&&e.status===ST.DONE&&e.actualMin!=null&&e.actualMin!==t.startMin;
   return `<div class="slot ${cls}">
-    <div class="tcol">
-      <div class="tp">${fmtT(t.startMin)}</div>
-      ${drift?`<div class="ta">${fmtT(e.actualMin)}</div>`:""}
-    </div>
+    <div class="tcol"><div class="tp">${fmtT(t.startMin)}</div>
+      ${drift?`<div class="ta">${icon("i-check",11,2.2)}${fmtT(e.actualMin)}</div>`:""}</div>
     <div class="mid">
-      <div class="name ${st===ST.DONE?"done":st===ST.SKIPPED?"skip":""}">${esc(t.title)}
-        ${t.isDefault?`<span class="chip def">መሠረታዊ</span>`:""}
-        ${st===ST.RESCHEDULED?`<span class="chip mv">ተዛውሯል</span>`:""}
-      </div>
+      <div class="nm ${st===ST.DONE?"done":st===ST.SKIPPED?"skip":""}">
+        <a href="${href({name:"task",id:t.id})}">${esc(t.title)}</a>
+        ${t.isDefault?`<span class="chip def">default</span>`:""}
+        ${st===ST.RESCHEDULED?`<span class="chip mv">moved</span>`:""}</div>
       <div class="det"><span>${fmtD(t.duration)}</span>
-        ${t.place?`<span class="dot">·</span><span>${esc(t.place)}</span>`:""}</div>
-      ${e&&e.loggedAtMin!=null&&st===ST.DONE
-        ?`<div class="logged">የተመዘገበበት ${fmtT(e.loggedAtMin)}${e.loggedAtJdn!==d.jdn?" (በሌላ ቀን)":""}</div>`:""}
+        ${t.place?`<span class="sep">·</span><span>${esc(t.place)}</span>`:""}</div>
+      ${e&&st===ST.DONE&&e.loggedAtMin!=null
+        ?`<div class="lg">${icon("i-log",11,1.8)}logged ${fmtT(e.loggedAtMin)}${e.loggedAtJdn!==d.jdn?" (another day)":""}</div>`:""}
     </div>
     <div class="acts">
       <button class="b ${st===ST.DONE?"yes":""}" data-done="${t.id}" data-j="${d.jdn}" data-p="${t.startMin??0}"
-        ${future&&st!==ST.DONE?"disabled":""}>${st===ST.DONE?"✓":"አዎ"}</button>
-      <button class="b ${st===ST.SKIPPED?"no":""}" data-skip="${t.id}" data-j="${d.jdn}">የለም</button>
-      <button class="b icon" data-menu="${t.id}" data-j="${d.jdn}">⋯</button>
-    </div>
-  </div>`;
+        ${future&&st!==ST.DONE?"disabled":""}>${st===ST.DONE?icon("i-check",14,2.4):"Yes"}</button>
+      <button class="b ${st===ST.SKIPPED?"no":""}" data-skip="${t.id}" data-j="${d.jdn}">No</button>
+      <button class="b ic" data-menu="${t.id}" data-j="${d.jdn}">${icon("i-dots",15,1.7)}</button>
+    </div></div>`;
 }
 
-function rail(d,{showNow}={}){
-  const list=forDay(d);
-  const unp=entries.filter(e=>e.dayJdn===d.jdn&&e.unplanned);
+function rail(d,showNow){
+  const list=forDay(d),unp=entries.filter(e=>e.dayJdn===d.jdn&&e.unplanned);
   if(!list.length&&!unp.length)
-    return `<div class="rail"><div class="empty">ለዚህ ቀን ምንም የለም።<br/>ባዶ ቀን ትክክለኛ ቀን ነው።</div></div>`;
+    return `<div class="rail"><div class="empty">Nothing on this day.<br/>An empty day is a valid day.</div></div>`;
   let h="";
   for(const s of timeline(list)){
     if(s.kind==="gap"){
       if(s.durationMin<20)continue;
       h+=`<div class="gap ${s.gapKind}"><div class="tcol">${fmtT(s.startMin)}</div>
-        <div>${s.gapKind===GAP.TRAVEL
-          ?`ጉዞ ${esc(s.from)} → ${esc(s.to)} · ${fmtD(s.durationMin)}`
-          :`ዕረፍት · ${fmtD(s.durationMin)}`}</div></div>`;
+        <div class="gi">${icon(s.gapKind===GAP.TRAVEL?"i-move":"i-rest",14,1.8)}
+        ${s.gapKind===GAP.TRAVEL?`Travel ${esc(s.from)} → ${esc(s.to)} · ${fmtD(s.durationMin)}`
+          :`Rest · ${fmtD(s.durationMin)}`}</div></div>`;
     } else if(s.kind==="overlap"){
       h+=`<div class="gap overlap"><div class="tcol">${fmtT(s.startMin)}</div>
-        <div>መደራረብ · ${fmtD(s.durationMin)}</div></div>`;
+        <div class="gi">${icon("i-warn",14,1.8)}Overlap · ${fmtD(s.durationMin)}</div></div>`;
     } else {
       const t=s.task;
       const cur=showNow&&t.startMin<=nowMin&&nowMin<t.startMin+(t.duration??0);
       const past=showNow&&t.startMin+(t.duration??0)<=nowMin;
       h+=slot(t,d,cur?"now":past?"past":"");
-    }
-  }
+    }}
   for(const e of unp)h+=`<div class="slot">
     <div class="tcol"><div class="tp">${fmtT(e.actualMin)}</div></div>
-    <div class="mid"><div class="name">${esc(e.title)} <span class="chip unp">ያልታቀደ</span></div>
+    <div class="mid"><div class="nm">${esc(e.title)} <span class="chip unp">unplanned</span></div>
       <div class="det"><span>${fmtD(e.durationMin)}</span></div>
-      <div class="logged">የተመዘገበበት ${fmtT(e.loggedAtMin)}</div></div></div>`;
+      <div class="lg">${icon("i-log",11,1.8)}logged ${fmtT(e.loggedAtMin)}</div></div></div>`;
   return `<div class="rail">${h}</div>`;
 }
 
-function quickAdd(d){
-  return `<div class="qa">
-    <div class="qarow">
-      <input type="text" id="q_t" placeholder="ተግባር ጨምር…" />
-      <button class="b yes" id="q_go">ጨምር</button>
-    </div>
-    <button class="expand" id="q_x">ተጨማሪ ዝርዝር +</button>
-    <div class="more" id="q_m">
-      <div><span class="lbl">የታቀደ ሰዓት</span><input type="time" id="q_a" value="${fmtT(Math.min(nowMin+30,1439))}" /></div>
-      <div><span class="lbl">ደቂቃ</span><input type="number" id="q_d" value="30" min="0" step="5" /></div>
-      <div class="full"><span class="lbl">ድግግሞሽ</span>
-        <select id="q_f">
-          <option value="once">አንድ ጊዜ — ይህ ቀን ብቻ</option>
-          <option value="everyday">በየቀኑ</option>
-          <option value="weekday">የሥራ ቀናት</option>
-          <option value="weekend">ቅዳሜና እሑድ</option>
-          <option value="weekly">በየ${d.dowN}</option>
-          <option value="ecmonth">በየወሩ ${d.ec.d}</option>
-          <option value="gcmonth">በየወሩ ${d.gc.d} (ግሪጎሪ)</option>
-          <option value="holiday">በዓላት</option>
-        </select></div>
-      <div class="full"><span class="lbl">ቦታ</span>
-        <input type="text" id="q_p" placeholder="ቤት፣ ቢሮ፣ ሱቅ… (ጉዞን ያሳያል)" /></div>
-    </div>
-  </div>`;
-}
-
-// ═══ PAGE: today ═══
+// ═══ PAGE: today (main) ═══
 function pageToday(){
-  const d=day(selJdn);
-  const isT=d.jdn===TODAY.jdn;
-  return crumb([{t:"እቅድ"},{t:isT?"ዛሬ":d.dowN}])
-    +`<div class="hero">
-      <h1>${isT?"ዛሬ":d.dowN}</h1>
-      <p class="sub">${d.ec.d} ${d.ecM} ${d.ec.y} · ${d.gc.d} ${d.gcM} ${d.gc.y}
-        ${d.hol.length?` · ${esc(d.hol.join("፣ "))}`:""}</p>
-    </div>`
-    +rail(d,{showNow:isT})
-    +quickAdd(d)
-    +`<div class="links">
-      <button class="lk" data-go='{"name":"calendar"}'>
-        <span class="ic">📅</span><span class="lt"><b>የቀን መቁጠሪያ</b>
-        <span>ሌላ ቀን ምረጥ</span></span><span class="ar">›</span></button>
-      <button class="lk" data-go='{"name":"blueprints"}'>
-        <span class="ic">🧭</span><span class="lt"><b>ንድፍ</b>
-        <span>ሁሌም የምታደርገው</span></span><span class="ar">›</span></button>
-      <button class="lk" id="unp">
-        <span class="ic">✓</span><span class="lt"><b>ያልታቀደ ነገር አደረግኩ</b>
-        <span>ከተፈጸመ በኋላ መዝግብ</span></span><span class="ar">›</span></button>
+  const d=day(selJdn),isT=d.jdn===TODAY.jdn;
+  const ecId=ruleRouteId({kind:"ec-monthday",day:d.ec.d});
+  return (isT?`<nav class="crumb"><span class="cur">Today</span></nav>`
+    :crumb([{t:"Today",to:{name:"today",jdn:TODAY.jdn}},{t:d.dowN}]))
+    +`<div class="hero"><h1>${isT?"Today":d.dowN}</h1>
+      <p class="sub"><span class="am">${d.ec.d} ${d.ecM} ${d.ec.y}</span> &nbsp;·&nbsp; ${d.gc.d} ${d.gcM} ${d.gc.y}
+      ${d.hol.length?` &nbsp;·&nbsp; ${esc(d.hol.map(h=>h.n).join(", "))}`:""}</p></div>`
+    +rail(d,isT)
+    +`<div class="qa">
+      <div class="qarow"><input type="text" id="q_t" placeholder="Add a task…" />
+        <button class="b yes lg" id="q_go">${icon("i-plus",15,2)}Add</button></div>
+      <button class="disc" id="q_x" aria-expanded="false">${icon("i-chev",13,2)}More detail</button>
+      <div class="more" id="q_m">
+        <div><span class="lbl">Planned time</span><input type="time" id="q_a" value="${fmtT(Math.min(nowMin+30,1439))}" /></div>
+        <div><span class="lbl">Minutes</span><input type="number" id="q_d" value="30" min="0" step="5" /></div>
+        <div class="full"><span class="lbl">Repeats</span><select id="q_f">
+          <option value="once">Once — this day only</option>
+          <option value="everyday">Every day</option>
+          <option value="weekday">Weekdays</option>
+          <option value="weekend">Weekends</option>
+          <option value="weekly">Every ${d.dowN}</option>
+          <option value="ecmonth">Day ${d.ec.d} of Ethiopian month</option>
+          <option value="gcmonth">Day ${d.gc.d} of Gregorian month</option>
+          <option value="holiday">Holidays</option></select></div>
+        <div class="full"><span class="lbl">Place</span>
+          <input type="text" id="q_p" placeholder="Home, Office, Store… (reveals travel gaps)" /></div>
+      </div></div>
+    <h2>Go to</h2>
+    <div class="cards">
+      <a class="card" href="${href({name:"calendar"})}"><span class="ci">${icon("i-cal",18)}</span>
+        <span class="ct"><b>Calendar</b><span>Pick another day</span></span>
+        <span class="ca">${icon("i-chev",16,2)}</span></a>
+      <a class="card" href="${href({name:"blueprints"})}"><span class="ci">${icon("i-map",18)}</span>
+        <span class="ct"><b>Blueprints</b><span>What you always do</span></span>
+        <span class="ca">${icon("i-chev",16,2)}</span></a>
+      <button class="card" id="unp"><span class="ci">${icon("i-check",18)}</span>
+        <span class="ct"><b>I did something unplanned</b><span>Record it after the fact</span></span>
+        <span class="ca">${icon("i-chev",16,2)}</span></button>
+    </div>
+    <h2>Day</h2>
+    <div class="cards">
+      <a class="card" href="${href({name:"today",jdn:d.jdn-1})}"><span class="ci">${icon("i-back",18)}</span>
+        <span class="ct"><b>Previous day</b><span>${day(d.jdn-1).dowN} · <span class="am">${day(d.jdn-1).ec.d} ${day(d.jdn-1).ecM}</span></span></span></a>
+      <a class="card" href="${href({name:"today",jdn:d.jdn+1})}"><span class="ci">${icon("i-chev",18)}</span>
+        <span class="ct"><b>Next day</b><span>${day(d.jdn+1).dowN} · <span class="am">${day(d.jdn+1).ec.d} ${day(d.jdn+1).ecM}</span></span></span></a>
     </div>`;
 }
 
 // ═══ PAGE: calendar ═══
 function pageCalendar(){
-  const {y,m}=anchor;
-  const len=ecLen(y,m);
-  const first=dayE(y,m,1);
-  const last=dayE(y,m,len);
-  const cells=[];
-  for(let i=0;i<first.dow;i++)cells.push(null);
+  const a=route.anchor?route.anchor.split("-").map(Number):[j2e(selJdn).y,j2e(selJdn).m];
+  const [y,m]=a, len=ecLen(y,m), first=dayE(y,m,1), last=dayE(y,m,len);
+  const cells=[];for(let i=0;i<first.dow;i++)cells.push(null);
   for(let i=1;i<=len;i++)cells.push(dayE(y,m,i));
-  const span=first.gc.m===last.gc.m?`${first.gcM} ${first.gc.y}`
-    :`${first.gcM} – ${last.gcM} ${last.gc.y}`;
-  return crumb([{t:"እቅድ",go:{name:"today"}},{t:"የቀን መቁጠሪያ"}])
-    +`<div class="hero"><h1>የቀን መቁጠሪያ</h1>
-      <p class="sub">ቀን ምረጥ፤ ያንን ቀን ምን እንደምታደርግ ታያለህ።</p></div>
+  const span=first.gc.m===last.gc.m?`${first.gcM} ${first.gc.y}`:`${first.gcM} – ${last.gcM} ${last.gc.y}`;
+  const pm=m===1?{y:y-1,m:13}:{y,m:m-1}, nm=m===13?{y:y+1,m:1}:{y,m:m+1};
+  return crumb([{t:"Today",to:{name:"today"}},{t:"Calendar"}])
+    +`<div class="hero"><h1>Calendar</h1>
+      <p class="sub">Ethiopian dates large, Gregorian small. Pick a day to open it.</p></div>
     <div class="cal">
       <div class="calhd">
-        <button class="nav" data-mo="-1">›</button>
-        <div class="mo"><b>${EC_M[m-1]} ${y}</b><span>${span}</span></div>
-        <button class="nav" data-mo="1">‹</button>
+        <a class="nb" href="${href({name:"calendar",anchor:`${pm.y}-${pm.m}`})}">${icon("i-back",16,2)}</a>
+        <div class="mo"><b class="am">${EC_M[m-1]} ${y}</b><span>${EC_M_EN[m-1]} · ${span}</span></div>
+        <a class="nb" href="${href({name:"calendar",anchor:`${nm.y}-${nm.m}`})}">${icon("i-chev",16,2)}</a>
       </div>
-      <div class="dows">${DOW2.map(x=>`<div>${x}</div>`).join("")}</div>
-      <div class="days">${cells.map(c=>{
-        if(!c)return `<div></div>`;
-        return `<button class="cell ${c.jdn===selJdn?"sel":""} ${c.jdn===TODAY.jdn?"today":""}
-          ${c.wknd?"wknd":""} ${c.hol.length?"hol":""}" data-pick="${c.jdn}"
-          title="${esc(c.dowN)}${c.hol.length?" · "+esc(c.hol.join("፣ ")):""}">
-          <span class="p">${c.ec.d}</span><span class="s">${c.gc.d}</span></button>`}).join("")}</div>
-      <div class="callg"><span>ትልቁ ቁጥር፦ ኢትዮጵያ</span><span>ትንሹ፦ ግሪጎሪ</span>
-        <span><i></i>በዓል</span></div>
+      <div class="dows">${DOW2_AM.map(x=>`<div class="am">${x}</div>`).join("")}</div>
+      <div class="days">${cells.map(c=>c?`<a class="cell ${c.jdn===selJdn?"sel":""}
+        ${c.jdn===TODAY.jdn?"today":""} ${c.wknd?"wknd":""} ${c.hol.length?"hol":""}"
+        href="${href({name:"today",jdn:c.jdn})}"
+        title="${esc(c.dowN)}${c.hol.length?" · "+esc(c.hol.map(h=>h.n).join(", ")):""}">
+        <span class="p">${c.ec.d}</span><span class="s">${c.gc.d}</span></a>`:`<span></span>`).join("")}</div>
+      <div class="callg"><span>Large: Ethiopian</span><span>Small: Gregorian</span><span><i></i>Holiday</span></div>
     </div>`;
 }
 
 // ═══ PAGE: blueprint index ═══
 function pageBlueprints(){
-  const rows=RULES.map(r=>{
-    const n=tasks.filter(t=>live(t)&&t.rule&&JSON.stringify(t.rule)===JSON.stringify(r.rule)).length;
-    return `<button class="bpr" data-go='{"name":"blueprint","id":"${r.id}"}'>
-      <span class="n"><b>${r.label}</b><span>${r.desc}</span></span>
-      <span class="c ${n?"":"zero"}">${n}</span><span class="ar">›</span></button>`}).join("");
-  return crumb([{t:"እቅድ",go:{name:"today"}},{t:"ንድፍ"}])
-    +`<div class="hero"><h1>ንድፍ</h1>
-      <p class="sub">በእያንዳንዱ ዓይነት ቀን ሁሌም የምታደርገው። እያንዳንዱ የራሱ ገጽ አለው።</p></div>
-    <div class="bp">${rows}</div>
-    <div class="hint">ተግባር ስትጨምር ድግግሞሽ ከሰጠኸው በራሱ ወደዚህ ይገባል።</div>`;
+  return crumb([{t:"Today",to:{name:"today"}},{t:"Blueprints"}])
+    +`<div class="hero"><h1>Blueprints</h1>
+      <p class="sub">What you always do, by kind of day. Each one is its own page.</p></div>
+    <div class="cards">${RULES.map(r=>{
+      const n=tasks.filter(t=>live(t)&&ruleKey(t.rule)===ruleKey(r.rule)).length;
+      return `<a class="card" href="${href({name:"blueprint",id:r.id})}">
+        <span class="ct"><b>${esc(r.label)}</b><span>${esc(r.desc)}</span></span>
+        <span class="cn ${n?"":"zero"}">${n}</span>
+        <span class="ca">${icon("i-chev",16,2)}</span></a>`}).join("")}</div>
+    <div class="hint">Add a task with a repeat and it lands in the matching blueprint automatically.</div>`;
 }
 
 // ═══ PAGE: one blueprint ═══
 function pageBlueprint(id){
   const r=RULES.find(x=>x.id===id);
   if(!r)return pageBlueprints();
-  const mine=tasks.filter(t=>t.rule&&JSON.stringify(t.rule)===JSON.stringify(r.rule))
-    .sort((a,b)=>(a.startMin??0)-(b.startMin??0));
+  const mine=tasks.filter(t=>ruleKey(t.rule)===ruleKey(r.rule)).sort((a,b)=>(a.startMin??0)-(b.startMin??0));
   const rows=mine.length?mine.map(t=>{
     const off=t.isDefault&&disabled.has(t.key);
     return `<div class="slot">
       <div class="tcol"><div class="tp">${fmtT(t.startMin)}</div></div>
-      <div class="mid"><div class="name ${off?"skip":""}">${esc(t.title)}
-        ${t.isDefault?`<span class="chip ${off?"off":"def"}">መሠረታዊ</span>`:""}</div>
+      <div class="mid"><div class="nm ${off?"skip":""}">
+        <a href="${href({name:"task",id:t.id})}">${esc(t.title)}</a>
+        ${t.isDefault?`<span class="chip ${off?"off":"def"}">default</span>`:""}</div>
         <div class="det"><span>${fmtD(t.duration)}</span>
-          ${t.place?`<span class="dot">·</span><span>${esc(t.place)}</span>`:""}</div></div>
+          ${t.place?`<span class="sep">·</span><span>${esc(t.place)}</span>`:""}</div></div>
       <div class="acts">${t.isDefault
-        ?`<button class="b ${off?"":"yes"}" data-tog="${t.key}">${off?"አብራ":"በርቷል"}</button>`
-        :`<button class="b" data-del="${t.id}">አስወግድ</button>`}</div>
-    </div>`}).join("")
-    :`<div class="empty">በዚህ ንድፍ ውስጥ ምንም የለም።</div>`;
-  return crumb([{t:"እቅድ",go:{name:"today"}},{t:"ንድፍ",go:{name:"blueprints"}},{t:r.label}])
-    +`<div class="hero"><h1>${r.label}</h1><p class="sub">${r.desc}</p></div>
+        ?`<button class="b ${off?"":"yes"}" data-tog="${t.key}">${off?"Off":"On"}</button>`
+        :`<button class="b" data-del="${t.id}">Remove</button>`}</div></div>`}).join("")
+    :`<div class="empty">No tasks in this blueprint yet.</div>`;
+  const i=RULES.findIndex(x=>x.id===id);
+  const prev=RULES[(i-1+RULES.length)%RULES.length],next=RULES[(i+1)%RULES.length];
+  return crumb([{t:"Today",to:{name:"today"}},{t:"Blueprints",to:{name:"blueprints"}},{t:r.label}])
+    +`<div class="hero"><h1>${esc(r.label)}</h1><p class="sub">${esc(r.desc)}</p></div>
     <div class="rail">${rows}</div>
-    ${mine.some(t=>t.isDefault)?`<div class="hint">መሠረታዊ ተግባራት ሁሌም አሉ። ማጥፋት ትችላለህ — አይጠፉም፣ እንደጠፉ ይታያሉ።</div>`:""}`;
+    ${mine.some(t=>t.isDefault)?`<div class="hint">Default tasks are always here. Turning one off keeps it visible as off — it never silently disappears.</div>`:""}
+    <h2>Other blueprints</h2>
+    <div class="cards">
+      <a class="card" href="${href({name:"blueprint",id:prev.id})}"><span class="ci">${icon("i-back",18)}</span>
+        <span class="ct"><b>${esc(prev.label)}</b><span>${esc(prev.desc)}</span></span></a>
+      <a class="card" href="${href({name:"blueprint",id:next.id})}"><span class="ci">${icon("i-chev",18)}</span>
+        <span class="ct"><b>${esc(next.label)}</b><span>${esc(next.desc)}</span></span></a>
+    </div>`;
+}
+
+// ═══ PAGE: task detail ═══
+function pageTask(id){
+  const t=tasks.find(x=>x.id===id);
+  const d=day(selJdn);
+  if(!t)return crumb([{t:"Today",to:{name:"today"}},{t:"Task"}])
+    +`<div class="hero"><h1>Not found</h1><p class="sub">This task no longer exists.</p></div>`;
+  const e=statusOf(entries,t.id,d.jdn);
+  const st=e?e.status:ST.UNKNOWN;
+  const bpId=ruleRouteId(t.rule);
+  const stLabel={unknown:"No answer yet",done:"Done",skipped:"Said no",rescheduled:"Moved"}[st];
+  return crumb([{t:"Today",to:{name:"today"}},
+    ...(bpId?[{t:"Blueprints",to:{name:"blueprints"}},{t:ruleLabel(t.rule),to:{name:"blueprint",id:bpId}}]:[]),
+    {t:t.title}])
+    +`<div class="hero"><h1>${esc(t.title)}</h1>
+      <p class="sub">${t.am?`<span class="am">${esc(t.am)}</span> · `:""}${esc(ruleLabel(t.rule))}</p></div>
+    <div class="kv">
+      <div class="kvr"><span class="k">${icon("i-clock",15)}Planned</span>
+        <span class="v mono">${fmtT(t.startMin)} · ${fmtD(t.duration)}</span></div>
+      <div class="kvr"><span class="k">${icon("i-check",15)}Actual</span>
+        <span class="v mono ${e&&e.actualMin!=null?"":"none"}">${e&&e.actualMin!=null?fmtT(e.actualMin):"not recorded"}</span></div>
+      <div class="kvr"><span class="k">${icon("i-log",15)}Logged</span>
+        <span class="v mono ${e&&e.loggedAtMin!=null?"":"none"}">${e&&e.loggedAtMin!=null?fmtT(e.loggedAtMin):"not recorded"}</span></div>
+      <div class="kvr"><span class="k">${icon("i-repeat",15)}Repeats</span>
+        <span class="v">${bpId?`<a href="${href({name:"blueprint",id:bpId})}">${esc(ruleLabel(t.rule))}</a>`:esc(ruleLabel(t.rule))}</span></div>
+      ${t.place?`<div class="kvr"><span class="k">${icon("i-pin",15)}Place</span><span class="v">${esc(t.place)}</span></div>`:""}
+      <div class="kvr"><span class="k">Status</span>
+        <span class="v ${st===ST.UNKNOWN?"none":""}">${stLabel}</span></div>
+    </div>
+    <div class="cards" style="margin-top:14px">
+      <button class="card" data-menu="${t.id}" data-j="${d.jdn}"><span class="ci">${icon("i-edit",18)}</span>
+        <span class="ct"><b>Edit times or move it</b><span>Actual time, or another day</span></span>
+        <span class="ca">${icon("i-chev",16,2)}</span></button>
+      ${t.isDefault?`<button class="card" data-tog="${t.key}"><span class="ci">${icon("i-off",18)}</span>
+        <span class="ct"><b>${disabled.has(t.key)?"Turn back on":"Turn off"}</b>
+        <span>${disabled.has(t.key)?"Currently off":"Stays visible as off"}</span></span></button>`:""}
+    </div>
+    <div class="hint">Planned is what the blueprint says. Actual is when it really happened.
+      Logged is when you told the app. All three are kept separately.</div>`;
 }
 
 // ═══ render ═══
 function render(){
-  const r=route;
-  $("app").innerHTML= r.name==="today"?pageToday()
-    : r.name==="calendar"?pageCalendar()
-    : r.name==="blueprints"?pageBlueprints()
-    : r.name==="blueprint"?pageBlueprint(r.id) : pageToday();
+  route=parseHash();
+  if(route.name==="today")selJdn=route.jdn??TODAY.jdn;
+  const html= route.name==="calendar"?pageCalendar()
+    : route.name==="blueprints"?pageBlueprints()
+    : route.name==="blueprint"?pageBlueprint(route.id)
+    : route.name==="task"?pageTask(route.id) : pageToday();
+  $("app").innerHTML=html;
   const g=$("q_go");
   if(g){
-    const add=()=>{
-      const t=$("q_t").value.trim();if(!t)return;
-      const d=day(selJdn);
-      const f=$("q_f")?$("q_f").value:"once";
-      const rule=ruleFromFreq(f,d);
-      const task={id:nid("t"),title:t,rule,
-        startMin:$("q_a")?parseT($("q_a").value)??nowMin:nowMin,
-        duration:$("q_d")?+$("q_d").value||0:30,
-        place:$("q_p")?.value.trim()||null};
-      if(!rule)task.onJdn=d.jdn;
-      tasks.push(task);render();
-    };
+    const add=()=>{const v=$("q_t").value.trim();if(!v)return;
+      const d=day(selJdn),f=$("q_f")?$("q_f").value:"once",rule=ruleFromFreq(f,d);
+      const t={id:nid("t"),title:v,rule,startMin:$("q_a")?parseT($("q_a").value)??nowMin:nowMin,
+        duration:$("q_d")?+$("q_d").value||0:30,place:$("q_p")?.value.trim()||null};
+      if(!rule)t.onJdn=d.jdn;
+      tasks.push(t);render()};
     g.onclick=add;
     $("q_t").onkeydown=e=>{if(e.key==="Enter")add()};
-    $("q_x").onclick=()=>$("q_m").classList.toggle("open");
+    $("q_x").onclick=e=>{const m=$("q_m");m.classList.toggle("open");
+      e.currentTarget.setAttribute("aria-expanded",m.classList.contains("open"))};
   }
   const u=$("unp");if(u)u.onclick=logUnplanned;
 }
 
 document.body.addEventListener("click",e=>{
-  const el=e.target.closest("[data-go],[data-pick],[data-mo],[data-done],[data-skip],[data-menu],[data-tog],[data-del]");
+  const el=e.target.closest("[data-done],[data-skip],[data-menu],[data-tog],[data-del]");
   if(!el)return;
-  if(el.dataset.go)return go(JSON.parse(el.dataset.go));
-  if(el.dataset.pick){selJdn=+el.dataset.pick;return go({name:"today"})}
-  if(el.dataset.mo){let{y,m}=anchor;m+=+el.dataset.mo;
-    if(m>13){m=1;y++}if(m<1){m=13;y--}anchor={y,m};return render()}
   if(el.dataset.done)return setStatus(el.dataset.done,+el.dataset.j,ST.DONE,+el.dataset.p);
   if(el.dataset.skip)return setStatus(el.dataset.skip,+el.dataset.j,ST.SKIPPED);
-  if(el.dataset.menu){
-    const tid=el.dataset.menu,j=+el.dataset.j;
-    $("dbody").innerHTML=`<h4>ተጨማሪ</h4><p>ስለዚህ ተግባር ምን ማድረግ ትፈልጋለህ?</p>
-      <div class="dacts" style="flex-direction:column;align-items:stretch;gap:8px">
-        <button class="ghost" id="m1">የተከናወነበትን ሰዓት አስተካክል</button>
-        <button class="ghost" id="m2">ወደ ሌላ ቀን አዛውር</button>
-      </div>`;
+  if(el.dataset.menu){const tid=el.dataset.menu,j=+el.dataset.j;
+    $("dbody").innerHTML=`<h4>More</h4><p>What do you want to do with this task?</p>
+      <div class="dacts stack">
+        <button class="ghost" id="m1">${icon("i-clock",15)}Set when it actually happened</button>
+        <button class="ghost" id="m2">${icon("i-move",15)}Move to another day</button></div>`;
     $("dlg").showModal();
     $("m1").onclick=()=>{$("dlg").close();editActual(tid,j)};
-    $("m2").onclick=()=>{$("dlg").close();reschedule(tid,j)};
-    return;
-  }
+    $("m2").onclick=()=>{$("dlg").close();reschedule(tid,j)};return}
   if(el.dataset.tog){const k=el.dataset.tog;
     disabled.has(k)?disabled.delete(k):disabled.add(k);return render()}
   if(el.dataset.del){const i=tasks.findIndex(t=>t.id===el.dataset.del);
     if(i>=0)tasks.splice(i,1);return render()}
 });
 $("nowt").addEventListener("change",e=>{const v=parseT(e.target.value);if(v!=null){nowMin=v;render()}});
+window.addEventListener("hashchange",render);
 render();
 </script>
 </body>
