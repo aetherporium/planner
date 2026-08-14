@@ -126,6 +126,13 @@ export const driftedFromPlan = (entry) =>
 export const GAP_KINDS = { REST: "rest", TRAVEL: "travel" };
 
 /**
+ * A task with no duration is a MOMENT — waking, a alarm, a deadline. It marks
+ * an instant on the day rather than occupying a stretch of it, so it neither
+ * fills time nor creates a gap around itself.
+ */
+export const isMoment = (task) => (task.duration ?? 0) === 0;
+
+/**
  * A continuous timeline, not a task list. Every minute is a task, a gap, or an
  * overlap. Gaps between tasks in different places are TRAVEL — you cannot clean
  * the house and then buy something at a store without moving between them.
@@ -139,12 +146,18 @@ export const timelineWithGaps = (tasks, { dayStartMin = 360, dayEndMin = 1440 } 
   let cursor = dayStartMin;
 
   for (const task of placed) {
+    // Moments mark an instant. They do not consume time, so they never open a
+    // gap behind them and never push the cursor forward.
+    if (isMoment(task)) {
+      out.push({ kind: "moment", task, startMin: task.startMin, endMin: task.startMin });
+      continue;
+    }
+
     const gap = task.startMin - cursor;
     if (gap > 0) {
-      const prev = out.length ? out[out.length - 1] : null;
+      const prev = [...out].reverse().find((o) => o.kind === "task") ?? null;
       const moving =
-        prev && prev.kind === "task" && prev.task.place && task.place &&
-        prev.task.place !== task.place;
+        prev && prev.task.place && task.place && prev.task.place !== task.place;
       out.push({
         kind: "gap",
         gapKind: moving ? GAP_KINDS.TRAVEL : GAP_KINDS.REST,
@@ -186,8 +199,12 @@ export const nowSlice = (tasks, nowMin, { pastCount = 2, futureCount = 3 } = {})
     .filter((t) => t.startMin != null)
     .sort((a, b) => a.startMin - b.startMin);
   const current =
-    placed.find((t) => t.startMin <= nowMin && nowMin < t.startMin + (t.duration ?? 0)) ?? null;
-  const past = placed.filter((t) => t.startMin + (t.duration ?? 0) <= nowMin).slice(-pastCount);
+    placed.find((t) =>
+      isMoment(t) ? t.startMin === nowMin : t.startMin <= nowMin && nowMin < t.startMin + t.duration,
+    ) ?? null;
+  const past = placed
+    .filter((t) => (isMoment(t) ? t.startMin < nowMin : t.startMin + (t.duration ?? 0) <= nowMin))
+    .slice(-pastCount);
   const upcoming = placed.filter((t) => t.startMin > nowMin).slice(0, futureCount);
   return { past, current, upcoming };
 };

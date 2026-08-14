@@ -1,6 +1,6 @@
 # ADR-0015 — Navigation prototype (open question)
 
-**Status:** Accepted — variant C (Orbit) promoted
+**Status:** Superseded by ADR-0018
 
 ## Context
 
@@ -54,3 +54,10 @@ Changes made when promoting it:
 A and B remain browsable at `#/prototype/<A|B|C>`, linked from the blueprints
 page, and `src/app/prototype-nav.jsx` stays throwaway until the user is done
 comparing.
+
+
+## Final outcome
+
+Superseded. The user chose **B (Summon)** for reach and **A (Adjacency)** for
+zero-cost neighbours, and asked for B to gain a calendar and free-form date
+parsing. C (Orbit) was dropped. See ADR-0018; the prototype file is deleted.

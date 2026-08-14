@@ -32,7 +32,6 @@ describe("router", () => {
     expect(parseHash("#/day/2461267")).toEqual({ name: "day", jdn: 2461267 });
     expect(parseHash("#/day/2461267/add")).toEqual({ name: "add", jdn: 2461267 });
     expect(parseHash("#/blueprints")).toEqual({ name: "blueprints", focus: null });
-    expect(parseHash("#/prototype/B")).toEqual({ name: "prototype", variant: "B" });
     expect(parseHash("#/task/default:wake/2461267")).toEqual({
       name: "task",
       id: "default:wake",
@@ -163,7 +162,7 @@ describe("product rules hold in the UI", () => {
 
   it("has no top bar or sidebar — navigation is inside the content", () => {
     const { container } = at("#/");
-    expect(container.querySelector("header.dayhead")).toBeTruthy();
+    expect(container.querySelector("header.dh")).toBeTruthy();
     expect(container.querySelector("nav.topbar, aside, .sidebar, .tabs")).toBeNull();
   });
 
@@ -196,14 +195,14 @@ describe("product rules hold in the UI", () => {
 
   it("renders the clock in analog and digital form at once", () => {
     const { container } = at("#/");
-    expect(container.querySelector("svg.clock-face")).toBeTruthy();
-    expect(container.querySelector(".clock-time").textContent).toMatch(/^\d{1,2}:\d{2}:\d{2}$/);
+    expect(container.querySelector("svg.face")).toBeTruthy();
+    expect(container.querySelector(".dh-digital").textContent).toMatch(/^\d{1,2}:\d{2}:\d{2}$/);
   });
 
   it("has no floating clock pill and no quick-add on the day", () => {
     const { container } = at("#/");
     expect(container.querySelector(".pill, .fab, .quickadd")).toBeNull();
-    expect(container.querySelector("header .clock")).toBeTruthy();
+    expect(container.querySelector("header.dh svg.face")).toBeTruthy();
   });
 
   it("has nothing at the bottom of the day and no add button on it", () => {
@@ -233,13 +232,38 @@ describe("product rules hold in the UI", () => {
     expect(container.querySelector(".dayhead .chips")).toBeNull();
   });
 
-  it("puts a large analog clock at the top left of the day", () => {
+  it("puts a large numbered analog clock at the top left, on no card", () => {
     const { container } = at("#/");
-    const head = container.querySelector("header.dayhead");
-    // The clock is the first thing in the header.
-    expect(head.firstElementChild.classList.contains("clock")).toBe(true);
-    const face = head.querySelector("svg.clock-face");
-    expect(Number(face.getAttribute("width"))).toBeGreaterThanOrEqual(72);
+    const head = container.querySelector("header.dh");
+    // First thing in the header, and much larger than before.
+    const face = head.firstElementChild;
+    expect(face.tagName).toBe("svg");
+    expect(Number(face.getAttribute("width"))).toBeGreaterThanOrEqual(130);
+    // It has real numbers on it.
+    const nums = [...face.querySelectorAll("text")].map((t) => t.textContent);
+    expect(nums).toHaveLength(12);
+    expect(nums).toContain("12");
+    expect(nums).toContain("6");
+    // No card: the header is not a glass panel.
+    expect(head.classList.contains("glass")).toBe(false);
+    expect(head.classList.contains("panel")).toBe(false);
+  });
+
+  it("keeps the digital time small beside the big face", () => {
+    const { container } = at("#/");
+    const face = Number(container.querySelector("svg.face").getAttribute("width"));
+    const digital = container.querySelector(".dh-digital");
+    expect(digital).toBeTruthy();
+    // It is a chip in the title line, not a second headline.
+    expect(digital.parentElement.classList.contains("dh-line")).toBe(true);
+    expect(face).toBeGreaterThan(100);
+  });
+
+  it("shows the day/night mark next to the digital time", () => {
+    const { container } = at("#/");
+    const mark = container.querySelector('.dh-digital [role="img"]');
+    expect(mark).toBeTruthy();
+    expect(["day", "night"]).toContain(mark.getAttribute("aria-label"));
   });
 });
 
@@ -260,7 +284,7 @@ describe("the 24-hour timeline", () => {
     for (const ev of container.querySelectorAll("a.ev")) {
       byTitle[ev.querySelector(".ev-title").textContent] = ev;
     }
-    // Wake 5m, Breakfast 30m, Lunch 45m, Sleep 450m.
+    // Breakfast 30m, Lunch 45m, Sleep 450m. Wake is a moment, not a block.
     const h = (t) => parseFloat(byTitle[t].style.height);
     const top = (t) => parseFloat(byTitle[t].style.top);
 
@@ -269,29 +293,40 @@ describe("the 24-hour timeline", () => {
     expect(h("Sleep")).toBeCloseTo(450 * px - 3, 1);
     // Lunch really is 1.5x breakfast on screen.
     expect(h("Lunch") / h("Breakfast")).toBeGreaterThan(1.4);
-    // Wake is tiny but still clickable.
-    expect(h("Wake")).toBeGreaterThanOrEqual(16);
+    expect(byTitle.Wake).toBeUndefined(); // a moment, drawn as a line
 
     // Position is measured from dawn, because the day begins at dawn.
-    expect(top("Wake")).toBeCloseTo(0, 1);                       // 06:00 = hour 0
     expect(top("Breakfast")).toBeCloseTo(60 * px, 1);            // 07:00 = 1h in
     expect(top("Lunch")).toBeCloseTo((6 * 60 + 30) * px, 1);     // 12:30 = 6.5h in
   });
 
-  it("draws a fill that ends at the current minute", () => {
+  it("fills with water up to the current minute", () => {
     const { container } = at("#/");
-    const fill = container.querySelector(".tl-fill");
-    expect(fill).toBeTruthy();
-    const elapsed = fromDawn(readNow().minutes) * px;
-    expect(parseFloat(fill.style.height)).toBeCloseTo(elapsed, 0);
-    // and the marker sits at the same place
-    expect(parseFloat(container.querySelector(".tl-nowdot").style.top)).toBeCloseTo(elapsed, 0);
+    const water = container.querySelector(".water");
+    expect(water).toBeTruthy();
+    expect(parseFloat(water.style.height)).toBeCloseTo(fromDawn(readNow().minutes) * px, 0);
+    // It has a moving surface, which is what makes it read as water.
+    expect(water.querySelector(".water-surface svg path")).toBeTruthy();
   });
 
-  it("has no fill or now-marker on a day that is not today", () => {
+  it("water never blocks what it covers", () => {
+    const { container } = at("#/");
+    const water = container.querySelector(".water");
+    // Behind the entries, hidden from assistive tech, and not interactive.
+    expect(water.getAttribute("aria-hidden")).toBe("true");
+    expect(water.querySelector("a, button")).toBeNull();
+    // It is a sibling of the entry layer, never a wrapper around it.
+    expect(water.querySelector(".tl-body")).toBeNull();
+    expect(water.contains(container.querySelector("a.ev"))).toBe(false);
+    // Entries are still real links underneath it.
+    for (const ev of container.querySelectorAll("a.ev")) {
+      expect(ev.getAttribute("href")).toMatch(/^#\/task\//);
+    }
+  });
+
+  it("has no water on a day that is not today", () => {
     const { container } = at(`#/day/${readNow().jdn + 2}`);
-    expect(container.querySelector(".tl-fill")).toBeNull();
-    expect(container.querySelector(".tl-nowdot")).toBeNull();
+    expect(container.querySelector(".water")).toBeNull();
   });
 
   it("draws rest as a real entry occupying its real height", () => {
@@ -416,7 +451,7 @@ describe("the Ethiopian clock — the day begins at dawn", () => {
 
   it("shows the clock in Ethiopian form with a mark", () => {
     const { container } = at("#/");
-    const digits = container.querySelector(".clock-time");
+    const digits = container.querySelector(".dh-digital");
     expect(digits.textContent).toMatch(/^\d{1,2}:\d{2}:\d{2}$/);
     expect(digits.querySelector('[role="img"]')).toBeTruthy();
   });
@@ -502,109 +537,62 @@ describe("categories", () => {
   });
 });
 
-describe("the navigation prototype", () => {
-  it("renders all three variants and is marked throwaway", () => {
-    for (const v of ["A", "B", "C"]) {
-      const { container } = at(`#/prototype/${v}`);
-      expect(container.querySelector(".proto-tag").textContent).toMatch(/throwaway/i);
-      expect(container.querySelector(".switcher")).toBeTruthy();
-      cleanup();
-    }
-  });
-
-  it("variants are structurally different, not reskins", () => {
-    const a = at("#/prototype/A").container;
-    expect(a.querySelector(".adj")).toBeTruthy();
-    expect(a.querySelector(".summon")).toBeNull();
-    expect(a.querySelector(".orbit")).toBeNull();
-    cleanup();
-
-    const b = at("#/prototype/B").container;
-    expect(b.querySelector(".summon")).toBeTruthy();
-    expect(b.querySelector(".adj")).toBeNull();
-    cleanup();
-
-    const c = at("#/prototype/C").container;
-    expect(c.querySelector(".orbit")).toBeTruthy();
-    expect(c.querySelectorAll(".spoke")).toHaveLength(3);
-  });
-
-  it("the switcher cycles and wraps", () => {
-    const { container } = at("#/prototype/A");
-    const arrows = container.querySelectorAll(".sw-arrow");
-    expect(arrows[0].getAttribute("href")).toBe("#/prototype/C");
-    expect(arrows[1].getAttribute("href")).toBe("#/prototype/B");
-  });
-
-  it("falls back to A on a bad variant", () => {
-    const { container } = at("#/prototype/Z");
-    expect(container.querySelector(".adj")).toBeTruthy();
-  });
-});
-
 describe("every page is reachable", () => {
-  it("the orbit anchor is present on every page", () => {
+  it("the go-anywhere control is on every page", () => {
     for (const hash of ["#/", "#/calendar", "#/blueprints", `#/day/${readNow().jdn}/add`]) {
       const { container } = at(hash);
-      expect(container.querySelector(".orbit .anchor")).toBeTruthy();
+      expect(container.querySelector("button.go")).toBeTruthy();
       cleanup();
     }
   });
 
-  it("opens to three real links covering the whole app", () => {
+  it("opens a panel with a calendar and links to every top-level page", () => {
     const { container } = at("#/");
-    fireEvent.click(container.querySelector(".anchor"));
-    const spokes = [...container.querySelectorAll("a.spoke")];
-    expect(spokes.map((s) => s.getAttribute("href"))).toEqual([
-      "#/",
-      "#/calendar",
-      "#/blueprints",
-    ]);
-    // They are anchors, so back/forward keeps working.
-    for (const s of spokes) expect(s.tagName).toBe("A");
+    fireEvent.click(container.querySelector("button.go"));
+    const panel = document.querySelector(".go-panel");
+    expect(panel).toBeTruthy();
+    // A calendar you can point at, not just a field.
+    expect(panel.querySelectorAll("a.go-day").length).toBeGreaterThan(27);
+    const foot = [...panel.querySelectorAll(".go-foot a")].map((a) => a.getAttribute("href"));
+    expect(foot).toEqual(["#/", "#/calendar", "#/blueprints"]);
   });
 
-  it("marks where you already are", () => {
-    const { container } = at("#/calendar");
-    fireEvent.click(container.querySelector(".anchor"));
-    const current = container.querySelector("a.spoke.current");
-    expect(current.getAttribute("href")).toBe("#/calendar");
-  });
-
-  it("keeps the spokes out of the tab order while closed", () => {
+  it("suggests nearby days before anything is typed", () => {
     const { container } = at("#/");
-    for (const s of container.querySelectorAll("a.spoke")) {
-      expect(s.getAttribute("tabindex")).toBe("-1");
-    }
-    fireEvent.click(container.querySelector(".anchor"));
-    for (const s of container.querySelectorAll("a.spoke")) {
-      expect(s.getAttribute("tabindex")).toBe("0");
+    fireEvent.click(container.querySelector("button.go"));
+    const hits = [...document.querySelectorAll(".go-hit")];
+    expect(hits.length).toBe(3);
+    expect(hits[0].textContent).toMatch(/today/);
+  });
+
+  it("every result is a link, so back and forward keep working", () => {
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector("button.go"));
+    fireEvent.change(document.querySelector(".go-input"), { target: { value: "lunch" } });
+    for (const h of document.querySelectorAll(".go-hit")) {
+      expect(h.tagName).toBe("A");
+      expect(h.getAttribute("href")).toMatch(/^#\//);
     }
   });
 
-  it("links to the navigation prototype from blueprints", () => {
-    const { container } = at("#/blueprints");
-    const link = container.querySelector('a[href^="#/prototype"]');
-    expect(link).toBeTruthy();
-    expect(link.textContent).toMatch(/prototype/i);
-  });
-
-  it("every prototype variant can get back to the app", () => {
-    for (const v of ["A", "B", "C"]) {
-      const { container } = at(`#/prototype/${v}`);
-      expect(container.querySelector('a[href="#/blueprints"]')).toBeTruthy();
-      cleanup();
-    }
+  it("puts the neighbouring days above and below the day", () => {
+    const jdn = readNow().jdn;
+    const { container } = at("#/");
+    const prev = container.querySelector(".adj-prev");
+    const next = container.querySelector(".adj-next");
+    expect(prev.getAttribute("href")).toBe(`#/day/${jdn - 1}`);
+    expect(next.getAttribute("href")).toBe(`#/day/${jdn + 1}`);
+    // Above the timeline and below it, in that order.
+    const kids = [...container.querySelector(".day-page").children];
+    expect(kids.indexOf(prev)).toBeLessThan(kids.findIndex((k) => k.classList.contains("tl-wrap")));
+    expect(kids.indexOf(next)).toBeGreaterThan(kids.findIndex((k) => k.classList.contains("tl-wrap")));
   });
 
   it("reaches the add page and the task page from the day", () => {
     const jdn = readNow().jdn;
     const { container } = at(`#/day/${jdn}`);
-    // Every planned task links to its own detail page.
-    const task = container.querySelector('a.ev[href^="#/task/"]');
-    expect(task).toBeTruthy();
+    expect(container.querySelector('a.ev[href^="#/task/"]')).toBeTruthy();
     cleanup();
-    // And the add page is reachable by route.
     expect(at(`#/day/${jdn}/add`).container.querySelector("#t")).toBeTruthy();
   });
 });
@@ -630,19 +618,62 @@ describe("blueprints do not look like the day page", () => {
 
   it("sizes each slot bar by duration", () => {
     const { container } = at("#/blueprints");
-    const bars = [...container.querySelectorAll(".slot")].map((s) => ({
-      name: s.querySelector(".slot-n").textContent,
-      w: Number(s.querySelector(".slot-bar").style.getPropertyValue("--w")),
-    }));
+    const bars = [...container.querySelectorAll(".slot")]
+      .filter((s) => s.querySelector(".slot-bar"))
+      .map((s) => ({
+        name: s.querySelector(".slot-n").textContent,
+        w: Number(s.querySelector(".slot-bar").style.getPropertyValue("--w")),
+      }));
     const by = Object.fromEntries(bars.map((b) => [b.name, b.w]));
     expect(by.Sleep).toBeGreaterThan(by.Lunch);
     expect(by.Lunch).toBeGreaterThan(by.Breakfast);
-    expect(by.Breakfast).toBeGreaterThan(by.Wake);
+    // Wake has no bar at all — it is a moment.
+    expect(by.Wake).toBeUndefined();
   });
 
   it("orders a blueprint from dawn, so wake comes first", () => {
     const { container } = at("#/blueprints");
     const names = [...container.querySelectorAll(".slot-n")].map((n) => n.textContent);
     expect(names).toEqual(["Wake", "Breakfast", "Lunch", "Dinner", "Sleep"]);
+  });
+});
+
+describe("moments are lines, not blocks", () => {
+  it("draws wake as a hairline with no height", () => {
+    const { container } = at("#/");
+    const mo = container.querySelector("a.mo");
+    expect(mo).toBeTruthy();
+    expect(mo.textContent).toMatch(/Wake/);
+    // No height at all — it marks an instant.
+    expect(mo.style.height).toBe("");
+    expect(mo.querySelector(".mo-dot")).toBeTruthy();
+    expect(mo.querySelector(".mo-line")).toBeTruthy();
+  });
+
+  it("gives it no block among the timed entries", () => {
+    const { container } = at("#/");
+    const titles = [...container.querySelectorAll("a.ev .ev-title")].map((t) => t.textContent);
+    expect(titles).toEqual(["Breakfast", "Lunch", "Dinner", "Sleep"]);
+    expect(titles).not.toContain("Wake");
+  });
+
+  it("sits exactly on its minute — dawn", () => {
+    const { container } = at("#/");
+    expect(parseFloat(container.querySelector("a.mo").style.top)).toBeCloseTo(0, 1);
+  });
+
+  it("is still a link to its own page", () => {
+    const { container } = at("#/");
+    expect(container.querySelector("a.mo").getAttribute("href")).toMatch(/^#\/task\/default:wake\//);
+  });
+
+  it("shows no duration for it on the blueprint either", () => {
+    const { container } = at("#/blueprints");
+    const wake = [...container.querySelectorAll(".slot")].find((s) =>
+      /Wake/.test(s.querySelector(".slot-n").textContent),
+    );
+    expect(wake.querySelector(".slot-d").textContent).toBe("moment");
+    expect(wake.querySelector(".slot-moment")).toBeTruthy();
+    expect(wake.querySelector(".slot-bar")).toBeNull();
   });
 });

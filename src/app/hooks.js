@@ -30,7 +30,6 @@ export const parseHash = (raw) => {
     return { name: "day", jdn: Number(a) };
   }
   if (head === "blueprints") return { name: "blueprints", focus: a ?? null };
-  if (head === "prototype") return { name: "prototype", variant: (a ?? "A").toUpperCase() };
   if (head === "task" && a) return { name: "task", id: a, jdn: b ? Number(b) : null };
   return { name: "today" };
 };

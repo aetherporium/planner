@@ -17,7 +17,9 @@ export const DEFAULT_TASKS = [
     titleAm: "መነሳት",
     rule: { kind: "everyday" },
     startMin: 6 * 60,
-    duration: 5,
+    // A MOMENT, not a block. Waking takes no time — it is the instant the day
+    // starts. Giving it a duration would invent five minutes you never spent.
+    duration: 0,
     place: "Home",
     isDefault: true,
   },

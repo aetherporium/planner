@@ -9,12 +9,11 @@
 
 import { useMemo, useState } from "react";
 import Icon from "./Icon.jsx";
-import Clock from "./Clock.jsx";
 import Timeline from "./Timeline.jsx";
 import Mark, { Time } from "./Mark.jsx";
 import { t12, parts, parseEth, isNight, fromDawn } from "./format.js";
-import NavPrototype from "./prototype-nav.jsx";
-import Nav from "./Nav.jsx";
+import Nav, { Adjacent } from "./Nav.jsx";
+import DayHeader from "./DayHeader.jsx";
 import { useRoute, useTheme, useNowTick } from "./hooks.js";
 import { usePlanner, readNow, ruleIdOf } from "./store.js";
 import { EC_MONTHS, GC_MONTHS, DOW, ecMonthDays, dayFromJdn } from "../calendar.mjs";
@@ -26,6 +25,7 @@ import {
   canCompleteAt,
   loggedLate,
   driftedFromPlan,
+  isMoment,
 } from "../log.mjs";
 
 /* Amharic belongs to the calendar. */
@@ -68,62 +68,39 @@ function Top({ back, theme, onToggle }) {
 function DayPage({ jdn, planner, now, theme, onToggle }) {
   const day = dayFromJdn(jdn);
   const isToday = jdn === now.jdn;
-  const timeline = planner.timelineFor(jdn);
   const tasks = planner.tasksFor(jdn);
 
   return (
-    <div className="page">
+    <div className="page day-page">
       <Top back={isToday ? null : { href: "#/", label: "Today" }} theme={theme} onToggle={onToggle} />
 
-      <header className="dayhead glass">
-        <Clock minutes={isToday ? now.minutes : 0} seconds={isToday ? now.seconds : 0} size={78} />
+      <DayHeader day={day} isToday={isToday} now={now} jdn={jdn} />
 
-        <div className="grow">
-          <div className="datenav">
-            <a className="stepper" href={`#/day/${jdn - 1}`} aria-label="Previous day">
-              <Icon name="chevLeft" size={16} />
-            </a>
-            <h1 className="title">{isToday ? "Today" : DOW[day.dow]}</h1>
-            <a className="stepper" href={`#/day/${jdn + 1}`} aria-label="Next day">
-              <Icon name="chevRight" size={16} />
-            </a>
-          </div>
-          <div className="dual">
-            <a className="am" href={monthHref(day.ec.y, day.ec.m)}>
-              {EC_M_AM[day.ec.m - 1]} {day.ec.d}, {day.ec.y}
-            </a>
-            <span className="dot">·</span>
-            <span>
-              {DOW[day.dow]} {day.gc.d} {GC_MONTHS[day.gc.m - 1]} {day.gc.y}
-            </span>
-          </div>
-        </div>
-      </header>
+      {/* Adjacency: yesterday sits above the day, tomorrow below it. */}
+      <Adjacent jdn={jdn - 1} dir="prev" />
 
       {tasks.length === 0 ? (
-        <div className="glass panel">
-          <div className="empty">
-            <div className="icon-slot">
-              <Icon name="day" size={18} />
-            </div>
-            Nothing is planned for this day yet.
-            <div style={{ marginTop: 14 }}>
-              <a className="linkline" href={`#/day/${jdn}/add`}>
-                <Icon name="plus" size={14} />
-                Plan something
-              </a>
-            </div>
+        <div className="empty-day">
+          <div className="icon-slot"><Icon name="day" size={18} /></div>
+          Nothing is planned for this day yet.
+          <div style={{ marginTop: 14 }}>
+            <a className="linkline" href={`#/day/${jdn}/add`}>
+              <Icon name="plus" size={14} />
+              Plan something
+            </a>
           </div>
         </div>
       ) : (
         <Timeline
-          timeline={timeline}
+          timeline={planner.timelineFor(jdn)}
           jdn={jdn}
           nowMin={now.minutes}
           isToday={isToday}
           statusFor={planner.statusFor}
         />
       )}
+
+      <Adjacent jdn={jdn + 1} dir="next" />
     </div>
   );
 }
@@ -272,9 +249,15 @@ function BlueprintsPage({ planner, now, theme, onToggle, focus }) {
                       href={`#/task/${t.id}/${now.jdn}`}
                     >
                       <span className="slot-t"><Time min={t.startMin} size={6} /></span>
-                      <span className="slot-bar" style={{ "--w": Math.min(100, (t.duration ?? 0) / 4.5) }} />
+                      {isMoment(t) ? (
+                        <span className="slot-moment" />
+                      ) : (
+                        <span className="slot-bar" style={{ "--w": Math.min(100, (t.duration ?? 0) / 4.5) }} />
+                      )}
                       <span className="slot-n">{t.title}</span>
-                      <span className="slot-d">{t.enabled === false ? "off" : fmtDur(t.duration ?? 0)}</span>
+                      <span className="slot-d">
+                        {t.enabled === false ? "off" : isMoment(t) ? "moment" : fmtDur(t.duration ?? 0)}
+                      </span>
                     </a>
                   ))}
               </div>
@@ -410,13 +393,6 @@ function BlueprintsPage({ planner, now, theme, onToggle, focus }) {
         </div>
       )}
 
-      <div>
-        <a className="proto-link" href="#/prototype/A">
-          <Icon name="compass" size={13} />
-          Navigation prototype — 3 variants
-        </a>
-      </div>
-
       {loose.length && groups.length ? (
         <div className="cat glass-quiet" style={{ "--h": 220, marginTop: "var(--sp-3)" }}>
           <div className="cat-head">
@@ -502,7 +478,7 @@ function TaskPage({ id, jdn, planner, now, theme, onToggle }) {
           <div className="kv">
             <span className="k">Planned</span>
             <span className="v"><Time min={task.startMin} size={8} /></span>
-            <span className="sub">{fmtDur(task.duration ?? 0)}</span>
+            <span className="sub">{isMoment(task) ? "a moment" : fmtDur(task.duration ?? 0)}</span>
           </div>
           <div className="kv">
             <span className="k">Actual</span>
@@ -786,8 +762,6 @@ export default function App() {
     case "task":
       page = <TaskPage id={route.id} jdn={route.jdn} {...common} />;
       break;
-    case "prototype":
-      return <NavPrototype variant={route.variant} {...common} />;
     default:
       page = <DayPage jdn={now.jdn} {...common} />;
   }
@@ -795,7 +769,7 @@ export default function App() {
   return (
     <div className="shell">
       {page}
-      <Nav here={window.location.hash || "#/"} />
+      <Nav now={now} tasks={planner.allTasks} categories={planner.categories} />
     </div>
   );
 }

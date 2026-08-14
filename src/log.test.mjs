@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   STATUS, canCompleteAt, makeEntry, statusOf, timelineWithGaps, nowSlice,
-  GAP_KINDS, parseTime, fmtTime, fmtDur, loggedLate, driftedFromPlan, __resetEntryIds,
+  GAP_KINDS, parseTime, fmtTime, fmtDur, loggedLate, driftedFromPlan, __resetEntryIds, isMoment,
 } from "./log.mjs";
 import { dayFromGc } from "./calendar.mjs";
 import { buildDefaults, DEFAULT_TASKS } from "./defaults.mjs";
@@ -143,5 +143,69 @@ describe("formatting", () => {
   it("parses and rejects times", () => {
     expect(parseTime("09:45")).toBe(585);
     expect(parseTime("25:00")).toBeNull();
+  });
+});
+
+describe("moments — tasks with no duration", () => {
+  it("wake is a moment, because waking takes no time", () => {
+    const wake = buildDefaults().find((t) => t.key === "wake");
+    expect(wake.duration).toBe(0);
+    expect(isMoment(wake)).toBe(true);
+  });
+
+  it("everything else still occupies time", () => {
+    for (const t of buildDefaults().filter((t) => t.key !== "wake")) {
+      expect(isMoment(t)).toBe(false);
+      expect(t.duration).toBeGreaterThan(0);
+    }
+  });
+
+  it("is emitted as its own kind, with zero width", () => {
+    const tl = timelineWithGaps(
+      [
+        { id: "w", title: "Wake", startMin: 0, duration: 0 },
+        { id: "b", title: "Breakfast", startMin: 60, duration: 30 },
+      ],
+      { dayStartMin: 0, dayEndMin: 1440 },
+    );
+    const moment = tl.find((i) => i.kind === "moment");
+    expect(moment.task.title).toBe("Wake");
+    expect(moment.startMin).toBe(moment.endMin);
+  });
+
+  it("does not consume time or open a gap behind itself", () => {
+    const tl = timelineWithGaps(
+      [
+        { id: "w", title: "Wake", startMin: 0, duration: 0 },
+        { id: "b", title: "Breakfast", startMin: 60, duration: 30 },
+      ],
+      { dayStartMin: 0, dayEndMin: 1440 },
+    );
+    // One rest gap 0->60, not two, and it starts at the very beginning.
+    const gaps = tl.filter((i) => i.kind === "gap");
+    expect(gaps[0].startMin).toBe(0);
+    expect(gaps[0].endMin).toBe(60);
+  });
+
+  it("does not create a false travel gap", () => {
+    const tl = timelineWithGaps(
+      [
+        { id: "a", title: "Home thing", startMin: 0, duration: 60, place: "Home" },
+        { id: "w", title: "Alarm", startMin: 70, duration: 0, place: "Elsewhere" },
+        { id: "b", title: "Shop", startMin: 120, duration: 30, place: "Market" },
+      ],
+      { dayStartMin: 0, dayEndMin: 1440 },
+    );
+    const travel = tl.find((i) => i.gapKind === GAP_KINDS.TRAVEL);
+    // Travel is measured between real places, ignoring the moment.
+    expect(travel.from).toBe("Home");
+    expect(travel.to).toBe("Market");
+  });
+
+  it("counts as current only on its exact minute", () => {
+    const tasks = [{ id: "w", title: "Wake", startMin: 360, duration: 0 }];
+    expect(nowSlice(tasks, 360).current?.id).toBe("w");
+    expect(nowSlice(tasks, 361).current).toBeNull();
+    expect(nowSlice(tasks, 361).past.map((t) => t.id)).toEqual(["w"]);
   });
 });
