@@ -137,8 +137,8 @@ describe("formatting", () => {
   it("formats times and durations", () => {
     expect(fmtTime(585)).toBe("09:45");
     expect(fmtTime(null)).toBe("—");
-    expect(fmtDur(45)).toBe("45ደ");
-    expect(fmtDur(120)).toBe("2ሰ");
+    expect(fmtDur(45)).toBe("45 min");
+    expect(fmtDur(120)).toBe("2 hr");
   });
   it("parses and rejects times", () => {
     expect(parseTime("09:45")).toBe(585);

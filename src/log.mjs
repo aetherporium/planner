@@ -35,9 +35,9 @@ export const fmtTime = (min) => {
 
 export const fmtDur = (min) => {
   if (min == null) return "—";
-  if (min < 60) return `${min}ደ`;
+  if (min < 60) return `${min} min`;
   const h = min / 60;
-  return `${Number.isInteger(h) ? h : h.toFixed(1)}ሰ`;
+  return `${Number.isInteger(h) ? h : h.toFixed(1)} hr`;
 };
 
 export const parseTime = (str) => {
@@ -58,12 +58,12 @@ export const parseTime = (str) => {
  */
 export const canCompleteAt = ({ dayJdn, actualMin }, now) => {
   if (dayJdn > now.jdn) {
-    return { ok: false, reason: "ያ ቀን ገና አልደረሰም።" };
+    return { ok: false, reason: "That day hasn\u2019t happened yet." };
   }
   if (dayJdn === now.jdn && actualMin != null && actualMin > now.minutes) {
     return {
       ok: false,
-      reason: `አሁን ${fmtTime(now.minutes)} ነው — ${fmtTime(actualMin)} ላይ የሆነ ነገር መመዝገብ አይቻልም።`,
+      reason: `It\u2019s ${fmtTime(now.minutes)} now. You can\u2019t record something that happens at ${fmtTime(actualMin)} yet.`,
     };
   }
   return { ok: true };
