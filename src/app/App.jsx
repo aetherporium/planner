@@ -11,16 +11,19 @@ import { useMemo, useState } from "react";
 import Icon from "./Icon.jsx";
 import Timeline from "./Timeline.jsx";
 import Mark, { Time } from "./Mark.jsx";
-import { t12, parts, parseEth, isNight, fromDawn } from "./format.js";
+import { t12, parseEth, isNight, fromDawn } from "./format.js";
 import Nav from "./Nav.jsx";
 import DayHeader from "./DayHeader.jsx";
 import NowStrip from "./NowStrip.jsx";
 import Popup from "./Popup.jsx";
+import Blueprints from "./Blueprints.jsx";
+import Settings from "./Settings.jsx";
+import FormPrototype from "./prototype-form.jsx";
 import { useRoute, useTheme, useNowTick } from "./hooks.js";
 import { usePlanner, readNow, ruleIdOf } from "./store.js";
 import { EC_MONTHS, GC_MONTHS, DOW, ecMonthDays, dayFromJdn } from "../calendar.mjs";
 import { ruleFromFrequency } from "../blueprint.mjs";
-import { patternsIn, categorise, colorOf, CATEGORY_COLORS, patternName } from "../patterns.mjs";
+import { colorOf, iconOf, patternName } from "../patterns.mjs";
 import {
   STATUS,
   fmtDur,
@@ -54,6 +57,7 @@ function Top({ back, theme, onToggle }) {
         <span />
       )}
       <button
+        type="button"
         className="top-theme"
         onClick={onToggle}
         aria-label={theme === "dark" ? "Switch to light" : "Switch to dark"}
@@ -78,15 +82,6 @@ function DayPage({ jdn, planner, now, theme, onToggle }) {
 
       <DayHeader day={day} isToday={isToday} now={now} jdn={jdn} />
 
-      {isToday ? (
-        <NowStrip
-          tasks={tasks}
-          nowMin={now.minutes}
-          jdn={jdn}
-          statusFor={planner.statusFor}
-        />
-      ) : null}
-
       {tasks.length === 0 ? (
         <div className="empty-day">
           <div className="icon-slot"><Icon name="day" size={18} /></div>
@@ -99,15 +94,28 @@ function DayPage({ jdn, planner, now, theme, onToggle }) {
           </div>
         </div>
       ) : (
-        /* Yesterday, today and tomorrow are one continuous timeline. */
-        <Timeline
-          key={jdn}
-          jdn={jdn}
-          nowJdn={now.jdn}
-          nowMin={now.minutes}
-          timelineFor={planner.timelineFor}
-          statusFor={planner.statusFor}
-        />
+        /* The strip sits BESIDE the day, not above it: the timeline answers
+           "what shape is this day", the strip answers "what now". */
+        <div className="day-split">
+          <Timeline
+            key={jdn}
+            jdn={jdn}
+            nowJdn={now.jdn}
+            nowMin={now.minutes}
+            timelineFor={planner.timelineFor}
+            statusFor={planner.statusFor}
+          />
+          {isToday ? (
+            <NowStrip
+              tasks={tasks}
+              nowMin={now.minutes}
+              jdn={jdn}
+              statusFor={planner.statusFor}
+              pastCount={planner.settings.pastCount}
+              futureCount={planner.settings.futureCount}
+            />
+          ) : null}
+        </div>
       )}
     </div>
   );
@@ -191,203 +199,6 @@ function CalendarPage({ ecY, ecM, planner, now, theme, onToggle }) {
 
 /* ── Blueprints — where tasks are added, grouped, and shaped ──────────── */
 
-function BlueprintsPage({ planner, now, theme, onToggle, focus }) {
-  const recurring = planner.allTasks.filter((t) => t.rule);
-  const patterns = useMemo(() => patternsIn(recurring), [recurring]);
-  const { groups, loose } = useMemo(
-    () => categorise(planner.allTasks, planner.categories),
-    [planner.allTasks, planner.categories],
-  );
-
-  // Opening something is a popup, not a page. See ADR-0019.
-  const [openPattern, setOpenPattern] = useState(focus ?? null);
-  const [openCat, setOpenCat] = useState(null);
-  const [newCat, setNewCat] = useState(false);
-  const [catName, setCatName] = useState("");
-  const [catColor, setCatColor] = useState("blue");
-
-  const pattern = patterns.find((p) => p.id === openPattern) ?? null;
-  const category = groups.find((c) => c.id === openCat) ?? null;
-
-  const taskRow = (t) => (
-    <a key={t.id} className={`slot${t.enabled === false ? " off" : ""}`} href={`#/task/${t.id}/${now.jdn}`}>
-      <span className="slot-t"><Time min={t.startMin} size={6} /></span>
-      {isMoment(t) ? (
-        <span className="slot-moment" />
-      ) : (
-        <span className="slot-bar" style={{ "--w": Math.min(100, (t.duration ?? 0) / 4.5) }} />
-      )}
-      <span className="slot-n">{t.title}</span>
-      <span className="slot-d">
-        {t.enabled === false ? "off" : isMoment(t) ? "moment" : fmtDur(t.duration ?? 0)}
-      </span>
-    </a>
-  );
-
-  return (
-    <div className="page">
-      <Top back={{ href: "#/", label: "Today" }} theme={theme} onToggle={onToggle} />
-
-      {/* This page is for adding tasks. Everything else on it is secondary. */}
-      <div className="bp-hero">
-        <h1 className="title">Blueprints</h1>
-        <a className="bp-add" href={`#/day/${now.jdn}/add`}>
-          <Icon name="plus" size={18} />
-          <span>
-            <strong>New task</strong>
-            <small>Plan something you do</small>
-          </span>
-        </a>
-      </div>
-
-      {patterns.length ? (
-        <>
-          <h2 className="section">Patterns</h2>
-          <div className="card-strip">
-            {patterns.map((p) => (
-              <button key={p.id} className="sq" onClick={() => setOpenPattern(p.id)}>
-                <Icon name="pattern" size={16} className="sq-i" />
-                <span className="sq-n">{p.name}</span>
-                <span className="sq-c">{p.cadence}</span>
-                <span className="sq-k">{p.tasks.length} task{p.tasks.length === 1 ? "" : "s"}</span>
-              </button>
-            ))}
-          </div>
-        </>
-      ) : null}
-
-      <h2 className="section" style={{ marginTop: "var(--sp-6)" }}>Categories</h2>
-      <div className="card-strip">
-        {/* Same square as a category, marked so it reads as the one that makes one. */}
-        <button className="sq sq-new" onClick={() => setNewCat(true)}>
-          <span className="sq-plus"><Icon name="plus" size={17} /></span>
-          <span className="sq-n">New category</span>
-          <span className="sq-c">Group tasks your way</span>
-        </button>
-
-        {groups.map((c) => {
-          const col = colorOf(c.color);
-          return (
-            <button key={c.id} className="sq sq-cat" style={{ "--h": col.hue }} onClick={() => setOpenCat(c.id)}>
-              <span className="sq-dot" />
-              <span className="sq-n">{c.name}</span>
-              <span className="sq-c">{c.tasks.length} task{c.tasks.length === 1 ? "" : "s"}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {loose.length && groups.length ? (
-        <p className="hint" style={{ marginTop: "var(--sp-3)" }}>
-          {loose.length} task{loose.length === 1 ? "" : "s"} not in any category.
-        </p>
-      ) : null}
-
-      {/* ── popups ── */}
-
-      {pattern ? (
-        <Popup title={pattern.name} sub={pattern.cadence} onClose={() => setOpenPattern(null)}>
-          <div className="sched">
-            {pattern.tasks
-              .slice()
-              .sort((a, b) => fromDawn(a.startMin ?? 0) - fromDawn(b.startMin ?? 0))
-              .map(taskRow)}
-          </div>
-        </Popup>
-      ) : null}
-
-      {category ? (
-        <Popup
-          title={category.name}
-          sub={`${category.tasks.length} task${category.tasks.length === 1 ? "" : "s"}`}
-          onClose={() => setOpenCat(null)}
-          footer={
-            <>
-              <span className="swatches">
-                {CATEGORY_COLORS.map((k) => (
-                  <button
-                    key={k.id}
-                    className={`swatch sm${category.color === k.id ? " on" : ""}`}
-                    style={{ "--h": k.hue }}
-                    onClick={() => planner.updateCategory(category.id, { color: k.id })}
-                    aria-label={`${category.name} in ${k.label}`}
-                    title={k.label}
-                  />
-                ))}
-              </span>
-              <button
-                className="btn"
-                style={{ marginLeft: "auto" }}
-                onClick={() => {
-                  planner.removeCategory(category.id);
-                  setOpenCat(null);
-                }}
-              >
-                <Icon name="trash" size={14} />
-                Delete
-              </button>
-            </>
-          }
-        >
-          {category.tasks.length ? (
-            <div className="sched">{category.tasks.map(taskRow)}</div>
-          ) : (
-            <div className="cat-empty">
-              Nothing here yet. Put a task in this category from its own page.
-            </div>
-          )}
-        </Popup>
-      ) : null}
-
-      {newCat ? (
-        <Popup title="New category" onClose={() => setNewCat(false)} width={400}>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!catName.trim()) return;
-              planner.addCategory({ name: catName.trim(), color: catColor });
-              setCatName("");
-              setNewCat(false);
-            }}
-          >
-            <div className="field">
-              <label htmlFor="cn">Name</label>
-              <input
-                id="cn"
-                className="input"
-                value={catName}
-                onChange={(e) => setCatName(e.target.value)}
-                placeholder="School, home, errands…"
-                autoFocus
-              />
-            </div>
-            <div className="field">
-              <label>Colour</label>
-              <div className="swatches">
-                {CATEGORY_COLORS.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={`swatch${catColor === c.id ? " on" : ""}`}
-                    style={{ "--h": c.hue }}
-                    onClick={() => setCatColor(c.id)}
-                    aria-label={c.label}
-                    title={c.label}
-                  />
-                ))}
-              </div>
-            </div>
-            <button className="btn primary" type="submit" disabled={!catName.trim()}>
-              <Icon name="plus" size={15} />
-              Create
-            </button>
-          </form>
-        </Popup>
-      ) : null}
-    </div>
-  );
-}
-
 /* ── Task detail ──────────────────────────────────────────────────────── */
 
 function TaskPage({ id, jdn, planner, now, theme, onToggle }) {
@@ -444,6 +255,7 @@ function TaskPage({ id, jdn, planner, now, theme, onToggle }) {
         </span>
         <h1 className="title" style={{ marginTop: 4 }}>{task.title}</h1>
         {task.titleAm ? <div className="sub am" style={{ marginTop: 2 }}>{task.titleAm}</div> : null}
+        {task.description ? <p className="task-desc">{task.description}</p> : null}
 
         <div className="split" style={{ marginTop: "var(--sp-5)" }}>
           <div className="kv">
@@ -530,12 +342,12 @@ function TaskPage({ id, jdn, planner, now, theme, onToggle }) {
             <button
               key={c.id}
               className={`chip pick${task.categoryId === c.id ? " on" : ""}`}
-              style={{ "--h": colorOf(c.color).hue }}
+              style={{ "--c": colorOf(c.color) }}
               onClick={() =>
                 planner.setCategory(task.id, task.categoryId === c.id ? null : c.id)
               }
             >
-              <span className="cat-dot sm" />
+              <Icon name={iconOf(c.icon)} size={12} />
               {c.name}
             </button>
           ))}
@@ -570,18 +382,28 @@ function TaskPage({ id, jdn, planner, now, theme, onToggle }) {
 /* ── Add ──────────────────────────────────────────────────────────────── */
 
 function AddPage({ jdn, planner, now, theme, onToggle }) {
-  const day = dayFromJdn(jdn);
+  const [dayJdn, setDayJdn] = useState(jdn);
+  const day = dayFromJdn(dayJdn);
   const [title, setTitle] = useState("");
+  const [desc, setDesc] = useState("");
   const [start, setStart] = useState("2:00");
   const [night, setNight] = useState(false);
   const [dur, setDur] = useState("30");
-  const [freq, setFreq] = useState("once");
+  const [freq, setFreq] = useState("");
   const [place, setPlace] = useState("");
   const [categoryId, setCategoryId] = useState(null);
 
   const compound = /\s(&|and|\+)\s/i.test(title);
   const startMin = parseEth(start, night);
-  const valid = title.trim() && startMin != null && Number(dur) > 0 && !compound;
+
+  // Date and frequency are REQUIREMENTS, not options. A task with no date is
+  // not scheduled, and a task with no frequency does not say whether it is a
+  // one-off or a habit — the blueprint cannot be derived without it.
+  const missing = [];
+  if (!title.trim()) missing.push("a name");
+  if (startMin == null) missing.push("a start time");
+  if (!freq) missing.push("how often it repeats");
+  const valid = missing.length === 0 && !compound && Number(dur) >= 0;
 
   const submit = (e) => {
     e.preventDefault();
@@ -589,6 +411,7 @@ function AddPage({ jdn, planner, now, theme, onToggle }) {
     const rule = ruleFromFrequency(freq, day);
     planner.addTask({
       title: title.trim(),
+      description: desc.trim() || null,
       startMin,
       duration: Number(dur),
       place: place.trim() || null,
@@ -596,7 +419,7 @@ function AddPage({ jdn, planner, now, theme, onToggle }) {
       dates: rule ? null : [day.iso],
       categoryId,
     });
-    window.location.hash = `#/day/${jdn}`;
+    window.location.hash = `#/day/${dayJdn}`;
   };
 
   return (
@@ -605,14 +428,10 @@ function AddPage({ jdn, planner, now, theme, onToggle }) {
         theme={theme} onToggle={onToggle} />
 
       <form className="glass panel" onSubmit={submit}>
-        <h1 className="title">Plan something</h1>
-        <p className="sub" style={{ marginTop: 4, marginBottom: "var(--sp-5)" }}>
-          <span className="am">{EC_M_AM[day.ec.m - 1]} {day.ec.d}</span> ·{" "}
-          {DOW[day.dow]} {day.gc.d} {GC_MONTHS[day.gc.m - 1]} {day.gc.y}
-        </p>
+        <h1 className="title" style={{ marginBottom: "var(--sp-5)" }}>Plan something</h1>
 
         <div className="field">
-          <label htmlFor="t">What</label>
+          <label htmlFor="t">What <span className="req">required</span></label>
           <input id="t" className="input" value={title} onChange={(e) => setTitle(e.target.value)}
             placeholder="One activity" autoFocus />
           {compound ? (
@@ -622,68 +441,68 @@ function AddPage({ jdn, planner, now, theme, onToggle }) {
           ) : null}
         </div>
 
+        <div className="field">
+          <label htmlFor="ds">Description</label>
+          <textarea id="ds" className="textarea" value={desc} onChange={(e) => setDesc(e.target.value)}
+            placeholder="What it involves, why it matters, anything worth remembering." />
+        </div>
+
+        <div className="field">
+          <label>Date <span className="req">required</span></label>
+          <span className="datepick">
+            <button type="button" className="stepper" onClick={() => setDayJdn(dayJdn - 1)}
+              aria-label="Previous day"><Icon name="chevLeft" size={14} /></button>
+            <span className="datepick-v">
+              <strong>{DOW[day.dow]} {day.gc.d} {GC_MONTHS[day.gc.m - 1]}</strong>
+              <small className="am">{EC_M_AM[day.ec.m - 1]} {day.ec.d}, {day.ec.y}</small>
+            </span>
+            <button type="button" className="stepper" onClick={() => setDayJdn(dayJdn + 1)}
+              aria-label="Next day"><Icon name="chevRight" size={14} /></button>
+          </span>
+        </div>
+
         <div className="inline-fields">
           <div className="field">
-            <label htmlFor="s">Starts</label>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input id="s" className="input" style={{ maxWidth: 100 }} value={start}
+            <label htmlFor="s">Starts <span className="req">required</span></label>
+            <span className="timepick">
+              <input id="s" className="input" style={{ width: 88 }} value={start}
                 onChange={(e) => setStart(e.target.value)} placeholder="2:00" inputMode="numeric" />
-              <div className="seg">
+              <span className="seg">
                 <button type="button" className={!night ? "on" : ""} onClick={() => setNight(false)}
-                  aria-label="day" title="day">
-                  <Mark night={false} size={9} />
-                </button>
+                  aria-label="day" title="day"><Mark night={false} size={9} /></button>
                 <button type="button" className={night ? "on" : ""} onClick={() => setNight(true)}
-                  aria-label="night" title="night">
-                  <Mark night size={9} />
-                </button>
-              </div>
-            </div>
+                  aria-label="night" title="night"><Mark night size={9} /></button>
+              </span>
+            </span>
           </div>
           <div className="field">
             <label htmlFor="d">Minutes</label>
-            <input id="d" className="input" value={dur}
-              onChange={(e) => setDur(e.target.value.replace(/\D/g, ""))} inputMode="numeric" />
+            <input id="d" className="input" value={dur} inputMode="numeric"
+              onChange={(e) => setDur(e.target.value.replace(/\D/g, ""))} />
+            <span className="hint">0 makes it a moment, like waking.</span>
           </div>
         </div>
 
-        <details className="disclosure">
-          <summary><Icon name="chevRight" size={13} className="chev" /> More options</summary>
-
-          <div className="field">
-            <label htmlFor="f">Repeats</label>
-            <select id="f" className="select" value={freq} onChange={(e) => setFreq(e.target.value)}>
-              <option value="once">Just this day</option>
-              <option value="daily">Every day</option>
-              <option value="weekly">Every {DOW[day.dow]}</option>
-              <option value="monthly">Day {day.gc.d} of each Gregorian month</option>
-              <option value="ec-monthly">Day {day.ec.d} of each Ethiopian month</option>
-            </select>
-            {freq !== "once" ? (
-              <span className="hint">
-                This joins the <strong>{patternName(ruleFromFrequency(freq, day))}</strong> pattern
-                automatically.
-              </span>
-            ) : null}
-          </div>
-
-          {planner.categories.length ? (
-            <div className="field">
-              <label>Category</label>
-              <div className="chips">
-                {planner.categories.map((c) => (
-                  <button key={c.id} type="button"
-                    className={`chip pick${categoryId === c.id ? " on" : ""}`}
-                    style={{ "--h": colorOf(c.color).hue }}
-                    onClick={() => setCategoryId(categoryId === c.id ? null : c.id)}>
-                    <span className="cat-dot sm" />
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            </div>
+        <div className="field">
+          <label htmlFor="f">How often <span className="req">required</span></label>
+          <select id="f" className="select" value={freq} onChange={(e) => setFreq(e.target.value)}>
+            <option value="">Choose…</option>
+            <option value="once">Just this day</option>
+            <option value="daily">Every day</option>
+            <option value="weekly">Every {DOW[day.dow]}</option>
+            <option value="monthly">Day {day.gc.d} of each Gregorian month</option>
+            <option value="ec-monthly">Day {day.ec.d} of each Ethiopian month</option>
+          </select>
+          {freq && freq !== "once" ? (
+            <span className="hint">
+              This joins the <strong>{patternName(ruleFromFrequency(freq, day))}</strong> pattern
+              automatically.
+            </span>
           ) : null}
+        </div>
 
+        <details className="disclosure">
+          <summary><Icon name="chevRight" size={13} className="chev" /> Place and category</summary>
           <div className="field">
             <label htmlFor="p">Place</label>
             <input id="p" className="input" value={place} onChange={(e) => setPlace(e.target.value)}
@@ -692,6 +511,21 @@ function AddPage({ jdn, planner, now, theme, onToggle }) {
               Naming places lets the planner see travel between them and reserve the time.
             </span>
           </div>
+          {planner.categories.length ? (
+            <div className="field">
+              <label>Category <span className="opt">optional</span></label>
+              <div className="chips">
+                {planner.categories.map((c) => (
+                  <button key={c.id} type="button" style={{ "--c": colorOf(c.color) }}
+                    className={`chip pick${categoryId === c.id ? " on" : ""}`}
+                    onClick={() => setCategoryId(categoryId === c.id ? null : c.id)}>
+                    <Icon name={iconOf(c.icon)} size={12} />
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </details>
 
         <div className="btnrow" style={{ marginTop: "var(--sp-5)" }}>
@@ -699,6 +533,7 @@ function AddPage({ jdn, planner, now, theme, onToggle }) {
             <Icon name="plus" size={15} /> Add
           </button>
           <a className="linkline" href={`#/day/${jdn}`}>Cancel</a>
+          {missing.length ? <span className="hint">Still needs {missing.join(", ")}.</span> : null}
         </div>
       </form>
     </div>
@@ -728,8 +563,13 @@ export default function App() {
       page = <AddPage jdn={route.jdn} {...common} />;
       break;
     case "blueprints":
-      page = <BlueprintsPage focus={route.focus} {...common} />;
+      page = <Blueprints Top={Top} {...common} />;
       break;
+    case "settings":
+      page = <Settings Top={Top} {...common} />;
+      break;
+    case "prototype":
+      return <FormPrototype variant={route.variant} planner={planner} now={now} />;
     case "task":
       page = <TaskPage id={route.id} jdn={route.jdn} {...common} />;
       break;
@@ -745,4 +585,4 @@ export default function App() {
   );
 }
 
-export { DayPage, CalendarPage, BlueprintsPage, TaskPage, AddPage, Top };
+export { DayPage, CalendarPage, TaskPage, AddPage, Top };

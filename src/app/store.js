@@ -70,6 +70,54 @@ export const ruleLabel = (id) => {
   return r ? describeRule(r) : "Unknown";
 };
 
+export const DEFAULT_SETTINGS = {
+  dayStart: "dawn",        // dawn | midnight — where the timeline is anchored
+  showSeconds: true,
+  showWater: true,
+  gapThreshold: 20,        // minutes; below this a gap is noise, not rest
+  neighbourDays: true,     // yesterday and tomorrow in the same timeline
+  pastCount: 2,
+  futureCount: 3,
+  confirmDayChange: true,  // scrolling into a neighbour asks before switching
+};
+
+/**
+ * DEMO CONTENT — only ever loaded when the user asks for it from Settings.
+ * Nothing here is shown by default; a fresh install has five defaults and
+ * nothing else.
+ */
+const DEMO_CATEGORIES = [
+  { name: "School", color: "#2c6fb5", icon: "book" },
+  { name: "Home", color: "#2f8f74", icon: "home" },
+  { name: "Work", color: "#6b4fc4", icon: "work" },
+  { name: "Health", color: "#b23b57", icon: "heart" },
+  { name: "Errands", color: "#b5761f", icon: "cart" },
+  { name: "Music", color: "#b04b8a", icon: "music" },
+];
+
+const DEMO_TASKS = [
+  { title: "Morning prayer", startMin: 6 * 60 + 10, duration: 20, rule: { kind: "everyday" }, place: "Home", cat: "Home" },
+  { title: "Commute to school", startMin: 7 * 60 + 40, duration: 35, rule: { kind: "weekday" }, place: "Bus", cat: "School" },
+  { title: "Maths", startMin: 8 * 60 + 30, duration: 90, rule: { kind: "weekday" }, place: "School", cat: "School" },
+  { title: "Physics", startMin: 10 * 60 + 15, duration: 60, rule: { kind: "weekday" }, place: "School", cat: "School" },
+  { title: "Library reading", startMin: 14 * 60, duration: 75, rule: { kind: "weekday" }, place: "School", cat: "School" },
+  { title: "Football", startMin: 16 * 60 + 30, duration: 90, rule: { kind: "dow", dow: 2 }, place: "Field", cat: "Health" },
+  { title: "Run", startMin: 6 * 60 + 40, duration: 40, rule: { kind: "dow", dow: 4 }, place: "Park", cat: "Health" },
+  { title: "Guitar practice", startMin: 17 * 60, duration: 45, rule: { kind: "dow", dow: 0 }, place: "Home", cat: "Music" },
+  { title: "Choir", startMin: 9 * 60, duration: 120, rule: { kind: "dow", dow: 0 }, place: "Church", cat: "Music" },
+  { title: "Market", startMin: 9 * 60 + 30, duration: 80, rule: { kind: "weekend" }, place: "Market", cat: "Errands" },
+  { title: "Laundry", startMin: 13 * 60, duration: 60, rule: { kind: "weekend" }, place: "Home", cat: "Home" },
+  { title: "Clean the house", startMin: 15 * 60, duration: 90, rule: { kind: "dow", dow: 6 }, place: "Home", cat: "Home" },
+  { title: "Pay rent", startMin: 10 * 60, duration: 30, rule: { kind: "gc-monthday", day: 1 }, place: "Bank", cat: "Errands" },
+  { title: "Budget review", startMin: 20 * 60, duration: 45, rule: { kind: "ec-monthday", day: 1 }, place: "Home", cat: "Work" },
+  { title: "Team standup", startMin: 9 * 60 + 15, duration: 15, rule: { kind: "weekday" }, place: "Office", cat: "Work" },
+  { title: "Deep work", startMin: 11 * 60 + 30, duration: 120, rule: { kind: "weekday" }, place: "Office", cat: "Work" },
+  { title: "Call home", startMin: 21 * 60, duration: 25, rule: { kind: "dow", dow: 5 }, place: "Home", cat: "Home" },
+  { title: "Holiday meal", startMin: 13 * 60, duration: 150, rule: { kind: "holiday" }, place: "Home", cat: "Home" },
+  { title: "Stretch", startMin: 6 * 60 + 5, duration: 0, rule: { kind: "everyday" }, place: "Home", cat: "Health" },
+  { title: "Water plants", startMin: 18 * 60 + 30, duration: 15, rule: { kind: "dow", dow: 3 }, place: "Home", cat: "Home" },
+];
+
 let seq = 0;
 const newId = () => `t${Date.now().toString(36)}${(seq++).toString(36)}`;
 
@@ -82,6 +130,8 @@ export const usePlanner = () => {
   const [disabled, setDisabled] = usePersisted("planner:disabled", []);
   // The user's own groupings. Empty until they make one.
   const [categories, setCategories] = usePersisted("planner:categories", []);
+  // Preferences. Defaults are the product's opinion, not fabricated user data.
+  const [settings, setSettings] = usePersisted("planner:settings", DEFAULT_SETTINGS);
 
   // Defaults are product, not user data, so their category lives separately.
   const [defaultCats, setDefaultCats] = usePersisted("planner:defaultCats", {});
@@ -172,11 +222,44 @@ export const usePlanner = () => {
 
   const findTask = useCallback((id) => allTasks.find((t) => t.id === id) ?? null, [allTasks]);
 
+  const setSetting = useCallback(
+    (key, value) => setSettings((s0) => ({ ...s0, [key]: value })),
+    [setSettings],
+  );
+
+  /**
+   * Load a demo day so the layout can be judged against real density.
+   * Explicitly user-triggered and clearly labelled — it is never seeded, and
+   * never appears unless asked for. See ADR-0007.
+   */
+  const loadDemo = useCallback(() => {
+    const cats = DEMO_CATEGORIES.map((c) => ({
+      ...c,
+      id: `c${Date.now().toString(36)}${(seq++).toString(36)}`,
+    }));
+    const byName = Object.fromEntries(cats.map((c) => [c.name, c.id]));
+    setCategories(cats);
+    setUserTasks(
+      DEMO_TASKS.map((t) => ({
+        ...t,
+        id: `t${Date.now().toString(36)}${(seq++).toString(36)}`,
+        categoryId: t.cat ? byName[t.cat] : null,
+      })),
+    );
+  }, [setCategories, setUserTasks]);
+
+  const clearAll = useCallback(() => {
+    setUserTasks([]);
+    setCategories([]);
+    setEntries([]);
+    setDefaultCats({});
+  }, [setUserTasks, setCategories, setEntries, setDefaultCats]);
+
   // ── Categories: authored groupings, unlike patterns which are observed ──
 
   const addCategory = useCallback(
-    ({ name, color }) => {
-      const c = { id: `c${Date.now().toString(36)}${(seq++).toString(36)}`, name, color };
+    ({ name, color, icon = null }) => {
+      const c = { id: `c${Date.now().toString(36)}${(seq++).toString(36)}`, name, color, icon };
       setCategories((cs) => [...cs, c]);
       return c;
     },
@@ -219,6 +302,10 @@ export const usePlanner = () => {
     entries,
     disabled,
     categories,
+    settings,
+    setSetting,
+    loadDemo,
+    clearAll,
     addCategory,
     updateCategory,
     removeCategory,

@@ -85,15 +85,37 @@ describe("pages render", () => {
     expect(screen.getByText("Logged")).toBeTruthy();
   });
 
-  it("add page renders and hides detail behind a disclosure", () => {
+  it("add page requires a name, a date, a time and a frequency", () => {
     const { container } = at(`#/day/${readNow().jdn}/add`);
-    expect(screen.getByLabelText("What")).toBeTruthy();
-    expect(screen.getByLabelText("Starts")).toBeTruthy();
-    // Repeats/place/kind live inside <details>, so adding stays minimal.
+    expect(container.querySelector("#t")).toBeTruthy();
+    expect(container.querySelector("#s")).toBeTruthy();
+    expect(container.querySelector("#f")).toBeTruthy();
+    expect(container.querySelector(".datepick")).toBeTruthy();
+    // Four fields carry the required mark.
+    expect(container.querySelectorAll(".req").length).toBeGreaterThanOrEqual(4);
+    // Frequency starts unset, so it cannot be skipped by accident.
+    expect(container.querySelector("#f").value).toBe("");
+    const submit = container.querySelector('form button[type="submit"]');
+    expect(submit.disabled).toBe(true);
+    expect(container.textContent).toMatch(/Still needs .*how often it repeats/);
+  });
+
+  it("add page has a description, and keeps only extras behind a disclosure", () => {
+    const { container } = at(`#/day/${readNow().jdn}/add`);
+    expect(container.querySelector("#ds")).toBeTruthy();
     const details = container.querySelector("details.disclosure");
-    expect(details).toBeTruthy();
     expect(details.open).toBe(false);
-    expect(within(details).getByLabelText("Repeats")).toBeTruthy();
+    // Only place and category are optional enough to hide.
+    expect(within(details).getByLabelText("Place")).toBeTruthy();
+    expect(within(details).queryByLabelText("How often")).toBeNull();
+  });
+
+  it("becomes submittable once the requirements are met", () => {
+    const { container } = at(`#/day/${readNow().jdn}/add`);
+    fireEvent.change(container.querySelector("#t"), { target: { value: "Read" } });
+    fireEvent.change(container.querySelector("#f"), { target: { value: "daily" } });
+    const submit = container.querySelector('form button[type="submit"]');
+    expect(submit.disabled).toBe(false);
   });
 
   it("unknown task and blueprint ids degrade gracefully", () => {
@@ -199,9 +221,7 @@ describe("product rules hold in the UI", () => {
   it("renders the clock in analog and digital form at once", () => {
     const { container } = at("#/");
     expect(container.querySelector("svg.face")).toBeTruthy();
-    // digits live inside the dial, on an arc
-    expect(container.querySelector("svg.face .face-digits textPath").textContent)
-      .toMatch(/^\d{1,2}:\d{2}$/);
+    expect(container.querySelector(".dh-read").textContent).toMatch(/^\d{1,2}:\d{2}:\d{2}$/);
   });
 
   it("has no floating clock pill and no quick-add on the day", () => {
@@ -240,12 +260,11 @@ describe("product rules hold in the UI", () => {
   it("is a circle with numbers and no bounding box", () => {
     const { container } = at("#/");
     const head = container.querySelector("header.dh");
-    const face = head.firstElementChild;
-    expect(face.tagName).toBe("svg");
+    // The clock leads the header.
+    expect(head.firstElementChild.classList.contains("dh-clock")).toBe(true);
+    const face = head.querySelector("svg.face");
     // Real numbers on the dial.
-    const nums = [...face.querySelectorAll("text")]
-      .map((t) => t.textContent)
-      .filter((t) => /^\d+$/.test(t));
+    const nums = [...face.querySelectorAll("text")].map((t) => t.textContent);
     expect(nums).toHaveLength(12);
     expect(nums).toContain("12");
     // A circle, not a square: no rect, and the only outline is a circle.
@@ -255,14 +274,16 @@ describe("product rules hold in the UI", () => {
     expect(head.classList.contains("glass")).toBe(false);
   });
 
-  it("puts the digits on an arc inside the dial, not beside it", () => {
+  it("puts the digits outside the dial where they can be read", () => {
     const { container } = at("#/");
     const face = container.querySelector("svg.face");
-    const arced = face.querySelector(".face-digits textPath");
-    expect(arced).toBeTruthy();
-    expect(arced.getAttribute("href")).toBe("#arc-digits");
-    // The old chip outside the clock is gone.
-    expect(container.querySelector(".dh-digital")).toBeNull();
+    // Nothing bent around an arc inside the face.
+    expect(face.querySelector("textPath")).toBeNull();
+    const read = container.querySelector(".dh-read");
+    expect(read).toBeTruthy();
+    // Upright, outside the svg, and above it in the DOM.
+    expect(read.closest("svg")).toBeNull();
+    expect(read.compareDocumentPosition(face) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("keeps the clock modest in size", () => {
@@ -272,9 +293,9 @@ describe("product rules hold in the UI", () => {
     expect(w).toBeLessThanOrEqual(120);
   });
 
-  it("shows the day/night mark in the header", () => {
+  it("shows the day/night mark beside the digits", () => {
     const { container } = at("#/");
-    const mark = container.querySelector('.dh-line [role="img"]');
+    const mark = container.querySelector('.dh-read [role="img"]');
     expect(["day", "night"]).toContain(mark.getAttribute("aria-label"));
   });
 });
@@ -515,8 +536,8 @@ describe("the Ethiopian clock — the day begins at dawn", () => {
 
   it("shows the clock in Ethiopian form with a mark", () => {
     const { container } = at("#/");
-    expect(container.querySelector(".face-digits textPath").textContent).toMatch(/^\d{1,2}:\d{2}$/);
-    expect(container.querySelector('.dh-line [role="img"]')).toBeTruthy();
+    expect(container.querySelector(".dh-read").textContent).toMatch(/^\d{1,2}:\d{2}:\d{2}$/);
+    expect(container.querySelector('.dh-read [role="img"]')).toBeTruthy();
   });
 
   it("fits sleep inside the day instead of overflowing it", () => {
@@ -539,17 +560,22 @@ describe("categories", () => {
 
     fireEvent.click(container.querySelector(".sq-new"));
     fireEvent.change(document.querySelector("#cn"), { target: { value: "School" } });
-    fireEvent.click(document.querySelectorAll(".pop .swatches .swatch")[2]);
+    // Colour is already chosen; picking one is a shortcut, not a requirement.
+    const swatch = document.querySelectorAll(".pop .swatches .swatch")[2];
+    const picked = swatch.style.getPropertyValue("--c");
+    fireEvent.click(swatch);
+    fireEvent.click(document.querySelectorAll(".pop .iconset .ipick")[0]);
     fireEvent.click(
       [...document.querySelectorAll(".pop button")].find((b) => /Create/.test(b.textContent)),
     );
 
-    // The popup closed and a square appeared.
     expect(document.querySelector(".pop")).toBeNull();
     const cat = container.querySelector(".sq-cat");
     expect(cat.textContent).toMatch(/School/);
-    expect(cat.style.getPropertyValue("--h")).toBe("268"); // violet
-    expect(JSON.parse(localStorage.getItem("planner:categories"))[0].name).toBe("School");
+    expect(cat.style.getPropertyValue("--c")).toBe(picked);
+    const saved = JSON.parse(localStorage.getItem("planner:categories"))[0];
+    expect(saved.name).toBe("School");
+    expect(saved.icon).toBe("book");
 
     // Opening it is a popup, not a page.
     fireEvent.click(cat);
@@ -804,12 +830,212 @@ describe("view kinds", () => {
     expect(document.querySelector(".pop")).toBeNull();
   });
 
-  it("the new-category square matches the category squares in shape", () => {
+  it("the new-category square matches the others and carries no label", () => {
     const { container } = at("#/blueprints");
     const mk = container.querySelector(".sq-new");
     expect(mk.classList.contains("sq")).toBe(true);
-    // Marked as the one that creates, not just another card.
-    expect(mk.querySelector(".sq-plus")).toBeTruthy();
-    expect(mk.textContent).toMatch(/New category/);
+    // No label text — the plus and the dashed edge say it.
+    expect(mk.textContent.trim()).toBe("");
+    expect(mk.getAttribute("aria-label")).toBe("New category");
+    expect(mk.querySelector("svg")).toBeTruthy();
+  });
+});
+
+describe("settings and demo content", () => {
+  it("is reachable from blueprints and has real preferences", () => {
+    const bp = at("#/blueprints");
+    expect(bp.container.querySelector('a[href="#/settings"]')).toBeTruthy();
+    cleanup();
+    const { container } = at("#/settings");
+    expect(container.querySelectorAll(".pref").length).toBeGreaterThan(5);
+    expect(container.querySelectorAll('[role="switch"]').length).toBeGreaterThan(2);
+  });
+
+  it("still shows nothing invented until the demo is asked for", () => {
+    at("#/blueprints");
+    expect(JSON.parse(localStorage.getItem("planner:categories") ?? "[]")).toEqual([]);
+    expect(JSON.parse(localStorage.getItem("planner:tasks") ?? "[]")).toEqual([]);
+  });
+
+  it("loads demo content on request, and clears it again", () => {
+    const s = at("#/settings");
+    fireEvent.click(
+      [...s.container.querySelectorAll("button")].find((b) => /Load demo/.test(b.textContent)),
+    );
+    expect(JSON.parse(localStorage.getItem("planner:tasks")).length).toBeGreaterThan(15);
+    expect(JSON.parse(localStorage.getItem("planner:categories")).length).toBe(6);
+    cleanup();
+
+    // Enough content to judge how the strips scroll.
+    const bp = at("#/blueprints");
+    expect(bp.container.querySelectorAll(".sq-cat").length).toBe(6);
+    expect(bp.container.querySelectorAll(".sq").length).toBeGreaterThan(9);
+    expect(bp.container.querySelectorAll(".trow").length).toBeGreaterThan(20);
+    cleanup();
+
+    const s2 = at("#/settings");
+    fireEvent.click(
+      [...s2.container.querySelectorAll("button")].find((b) => /Clear everything/.test(b.textContent)),
+    );
+    expect(JSON.parse(localStorage.getItem("planner:tasks"))).toEqual([]);
+  });
+
+  it("a toggle actually changes the stored preference", () => {
+    const { container } = at("#/settings");
+    const sw = container.querySelector('[role="switch"]');
+    const before = sw.getAttribute("aria-checked");
+    fireEvent.click(sw);
+    expect(container.querySelector('[role="switch"]').getAttribute("aria-checked")).not.toBe(before);
+  });
+});
+
+describe("blueprints is split, and lists everything", () => {
+  it("has a top half of shelves and a bottom half of tasks", () => {
+    const { container } = at("#/blueprints");
+    expect(container.querySelector(".bp-top")).toBeTruthy();
+    expect(container.querySelector(".bp-bottom")).toBeTruthy();
+    // Every task appears in the list, defaults included.
+    expect(container.querySelectorAll(".trow").length).toBe(5);
+  });
+
+  it("shows information for each task, not just a name", () => {
+    const { container } = at("#/blueprints");
+    const row = container.querySelector(".trow");
+    for (const cls of [".tc-time", ".tc-name", ".tc-dur", ".tc-pat", ".tc-cat", ".tc-place"]) {
+      expect(row.querySelector(cls)).toBeTruthy();
+    }
+  });
+
+  it("can be re-sorted", () => {
+    const { container } = at("#/blueprints");
+    const names = () => [...container.querySelectorAll(".tc-name")].map((n) => n.textContent);
+    const byTime = names();
+    fireEvent.click([...container.querySelectorAll(".seg button")].find((b) => b.textContent === "Name"));
+    expect(names()).not.toEqual(byTime);
+    expect(names()).toEqual([...names()].sort());
+  });
+
+  it("centres the strips", () => {
+    expect(CSS).toMatch(/\.card-strip\.centered \{[^}]*justify-content: safe center/);
+  });
+
+  it("opens patterns and categories wider than go-anywhere", () => {
+    const { container } = at("#/blueprints");
+    fireEvent.click(container.querySelector(".sq"));
+    expect(document.querySelector(".pop").classList.contains("pop-wide")).toBe(true);
+    expect(CSS).toMatch(/\.pop-wide \{[^}]*min-height/);
+  });
+});
+
+describe("categories are optional and unconstrained", () => {
+  it("needs only a name", () => {
+    const { container } = at("#/blueprints");
+    fireEvent.click(container.querySelector(".sq-new"));
+    const create = [...document.querySelectorAll(".pop button")].find((b) => /Create/.test(b.textContent));
+    expect(create.disabled).toBe(true);
+    fireEvent.change(document.querySelector("#cn"), { target: { value: "Solo" } });
+    // No colour or icon chosen, yet it is already valid.
+    expect([...document.querySelectorAll(".pop button")]
+      .find((b) => /Create/.test(b.textContent)).disabled).toBe(false);
+  });
+
+  it("accepts any colour, not just the presets", () => {
+    const { container } = at("#/blueprints");
+    fireEvent.click(container.querySelector(".sq-new"));
+    const custom = document.querySelector('.pop input[type="color"]');
+    expect(custom).toBeTruthy();
+    fireEvent.change(document.querySelector("#cn"), { target: { value: "Odd" } });
+    fireEvent.change(custom, { target: { value: "#123456" } });
+    fireEvent.click([...document.querySelectorAll(".pop button")].find((b) => /Create/.test(b.textContent)));
+    expect(JSON.parse(localStorage.getItem("planner:categories"))[0].color).toBe("#123456");
+  });
+
+  it("offers an icon set", () => {
+    const { container } = at("#/blueprints");
+    fireEvent.click(container.querySelector(".sq-new"));
+    expect(document.querySelectorAll(".pop .iconset .ipick").length).toBeGreaterThan(8);
+  });
+
+  it("uses rounded squares for picking, not circles", () => {
+    expect(CSS).toMatch(/\.swatch \{[^}]*border-radius: 10px/);
+  });
+});
+
+describe("the day does not change by accident", () => {
+  it("arms a confirmation instead of switching on scroll", () => {
+    const { container } = at("#/");
+    // Nothing armed until you scroll well past the edge.
+    expect(container.querySelector(".tl-jump")).toBeNull();
+    const sc = container.querySelector(".tl-scroll");
+    expect(sc).toBeTruthy();
+    // The threshold is deliberately far into the neighbour.
+    const src = readFileSync("src/app/Timeline.jsx", "utf8");
+    expect(src).toMatch(/DAY_H \* 0\.75/);
+    expect(src).toMatch(/setArmed/);
+    // And it never sets the hash from the scroll handler.
+    expect(src).not.toMatch(/onScroll[\s\S]{0,400}window\.location\.hash =/);
+  });
+
+  it("puts the now strip beside the day, not above it", () => {
+    const { container } = at("#/");
+    const split = container.querySelector(".day-split");
+    expect(split).toBeTruthy();
+    expect(split.querySelector(".tl-wrap")).toBeTruthy();
+    expect(split.querySelector(".ns")).toBeTruthy();
+    expect(CSS).toMatch(/\.day-split \{[^}]*display: flex/);
+  });
+});
+
+describe("the task-form prototype", () => {
+  it("renders three structurally different variants", () => {
+    const a = at("#/prototype/A").container;
+    expect(a.querySelectorAll(".section").length).toBeGreaterThan(2); // grouped ladder
+    expect(a.querySelector(".steps")).toBeNull();
+    cleanup();
+
+    const b = at("#/prototype/B").container;
+    expect(b.querySelectorAll(".step").length).toBe(3);
+    cleanup();
+
+    const c = at("#/prototype/C").container;
+    expect(c.querySelector(".sentence")).toBeTruthy();
+    expect(c.querySelectorAll(".blank").length).toBeGreaterThan(3);
+  });
+
+  it("every variant treats frequency as required", () => {
+    for (const v of ["A", "B", "C"]) {
+      const { container } = at(`#/prototype/${v}`);
+      expect(container.textContent).toMatch(/how often|required/i);
+      expect(container.querySelector(".req")).toBeTruthy();
+      cleanup();
+    }
+  });
+
+  it("no variant can be submitted without a frequency", () => {
+    for (const v of ["A", "C"]) {
+      const { container } = at(`#/prototype/${v}`);
+      fireEvent.change(container.querySelector('input[placeholder="do what?"], .input'), {
+        target: { value: "Read" },
+      });
+      const add = [...container.querySelectorAll("button")].find((b) => /Add/.test(b.textContent));
+      expect(add.disabled).toBe(true);
+      expect(container.textContent).toMatch(/how often/i);
+      cleanup();
+    }
+  });
+
+  it("every variant has a description field", () => {
+    for (const v of ["A", "B", "C"]) {
+      const { container } = at(`#/prototype/${v}`);
+      expect(container.querySelector("textarea")).toBeTruthy();
+      cleanup();
+    }
+  });
+
+  it("is marked throwaway and can get back", () => {
+    const { container } = at("#/prototype/A");
+    expect(container.querySelector(".proto-tag").textContent).toMatch(/throwaway/i);
+    expect(container.querySelector('a[href="#/settings"]')).toBeTruthy();
+    expect(container.querySelector(".switcher")).toBeTruthy();
   });
 });

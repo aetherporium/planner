@@ -1,10 +1,9 @@
 /**
- * The day header. No card, no border, no square — it sits on the page.
+ * The day header. No card, no border — it sits on the page.
  *
- * The clock is a circle and nothing more: no bounding box around it. The
- * digital reading is set on an arc inside the lower-right of the dial, so it
- * lives in the clock rather than beside it, and the whole thing takes less
- * width than it did.
+ * The dial is a circle and nothing more. The digital reading sits OUTSIDE it,
+ * upright, above the dial's top-left corner: numbers bent around an arc look
+ * decorative but are hard to actually read, so they get their own upright spot.
  */
 
 import Mark from "./Mark.jsx";
@@ -29,21 +28,14 @@ function Face({ minutes, seconds, size, live }) {
   const mp = at((m + seconds / 60) * 6, 72);
   const sp = at(seconds * 6, 78);
 
-  const digits = `${p.h}:${String(p.m).padStart(2, "0")}`;
-
   return (
     <svg
       className="face"
       width={size}
       height={size}
       viewBox="0 0 200 200"
-      aria-label={`${digits} ${p.night ? "night" : "day"}`}
+      aria-label={`${p.h}:${String(p.m).padStart(2, "0")} ${p.night ? "night" : "day"}`}
     >
-      {/* the arc the digits sit on, lower right */}
-      <defs>
-        <path id="arc-digits" d="M 128 168 A 78 78 0 0 0 176 118" fill="none" />
-      </defs>
-
       <circle cx="100" cy="100" r="95" fill="none" stroke="var(--line)" strokeWidth="1" />
 
       {Array.from({ length: 60 }, (_, i) => {
@@ -74,23 +66,10 @@ function Face({ minutes, seconds, size, live }) {
         );
       })}
 
-      {/* the digital reading, arced into the corner of the dial */}
-      <text
-        className="face-digits"
-        fill="var(--ink-3)"
-        fontSize="15"
-        fontWeight="500"
-        fontFamily="var(--sans)"
-        letterSpacing="1.2"
-      >
-        <textPath href="#arc-digits" startOffset="50%" textAnchor="middle">
-          {digits}
-        </textPath>
-      </text>
-
       <line x1="100" y1="100" x2={hp.x} y2={hp.y} stroke="var(--ink)" strokeWidth="5.6" strokeLinecap="round" />
       <line x1="100" y1="100" x2={mp.x} y2={mp.y} stroke="var(--ink)" strokeWidth="3.4" strokeLinecap="round" />
-      {/* only the second hand moves continuously — it is the only unit that does */}
+      {/* the only continuous motion in the app — seconds are the only unit
+          shown at that resolution */}
       {live ? (
         <line x1="100" y1="100" x2={sp.x} y2={sp.y} stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" />
       ) : null}
@@ -105,19 +84,26 @@ export default function DayHeader({ day, isToday, now, jdn, size = 116 }) {
 
   return (
     <header className="dh">
-      <Face
-        minutes={isToday ? now.minutes : 6 * 60}
-        seconds={isToday ? now.seconds : 0}
-        size={size}
-        live={isToday}
-      />
+      <div className="dh-clock">
+        {isToday ? (
+          <span className="dh-read">
+            {p.h}:{String(p.m).padStart(2, "0")}
+            <span className="dh-sec">:{String(now.seconds).padStart(2, "0")}</span>
+            <Mark night={p.night} size={7} />
+          </span>
+        ) : null}
+        <Face
+          minutes={isToday ? now.minutes : 6 * 60}
+          seconds={isToday ? now.seconds : 0}
+          size={size}
+          live={isToday}
+        />
+      </div>
 
       <div className="dh-text">
         <div className="dh-line">
           <h1 className="dh-title">{isToday ? "Today" : DOW[day.dow]}</h1>
-          {isToday ? (
-            <Mark night={p.night} size={8} style={{ color: "var(--ink-3)" }} />
-          ) : (
+          {isToday ? null : (
             <span className="dh-rel">
               {jdn < now.jdn ? "past" : "ahead"} {Math.abs(jdn - now.jdn)}d
             </span>

@@ -13,7 +13,7 @@
  * are the only unit displayed at that resolution.
  */
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Icon from "./Icon.jsx";
 import Mark from "./Mark.jsx";
 import { t12, rulerHour, fromDawn } from "./format.js";
@@ -170,7 +170,16 @@ export default function Timeline({ jdn, nowMin, nowJdn, timelineFor, statusFor, 
     el.scrollTop = middleTop + Math.max(0, within);
   }, [jdn]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Scrolling far enough into a neighbour makes it the day you are on.
+  /**
+   * Crossing into a neighbour ARMS the change; it does not make it.
+   *
+   * Scrolling is how you look around, so it must not silently move you to
+   * another day. Once you are well inside a neighbour a confirm bar appears
+   * and you say so. Idly scrolling past the edge and back leaves you where
+   * you were.
+   */
+  const [armed, setArmed] = useState(null);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return undefined;
@@ -179,8 +188,9 @@ export default function Timeline({ jdn, nowMin, nowJdn, timelineFor, statusFor, 
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const rel = el.scrollTop - middleTop;
-        if (rel > DAY_H * 0.62) window.location.hash = `#/day/${jdn + 1}`;
-        else if (rel < -DAY_H * 0.38) window.location.hash = `#/day/${jdn - 1}`;
+        if (rel > DAY_H * 0.75) setArmed(jdn + 1);
+        else if (rel < -DAY_H * 0.25) setArmed(jdn - 1);
+        else setArmed(null);
       });
     };
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -215,6 +225,14 @@ export default function Timeline({ jdn, nowMin, nowJdn, timelineFor, statusFor, 
       </div>
       <div className="tl-fade top" />
       <div className="tl-fade bot" />
+
+      {armed ? (
+        <a className="tl-jump" href={`#/day/${armed}`}>
+          <Icon name={armed > jdn ? "arrowDown" : "arrowUp"} size={14} />
+          Go to {DOW[dayFromJdn(armed).dow]} {dayFromJdn(armed).gc.d}{" "}
+          {GC_MONTHS[dayFromJdn(armed).gc.m - 1].slice(0, 3)}
+        </a>
+      ) : null}
     </div>
   );
 }

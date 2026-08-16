@@ -136,17 +136,27 @@ export const patternsIn = (tasks) => {
   return [...byKey.values()].sort((a, b) => b.rank - a.rank || a.seen - b.seen);
 };
 
-/** Palette offered when a category is created. */
+/**
+ * Colours offered as a starting point. A category is NOT limited to these —
+ * any colour is allowed, and the value stored is a plain hex string.
+ */
 export const CATEGORY_COLORS = [
-  { id: "green", label: "Green", hue: 162 },
-  { id: "blue", label: "Blue", hue: 214 },
-  { id: "violet", label: "Violet", hue: 268 },
-  { id: "rose", label: "Rose", hue: 4 },
-  { id: "amber", label: "Amber", hue: 38 },
-  { id: "slate", label: "Slate", hue: 220 },
+  "#2f8f74", "#2c6fb5", "#6b4fc4", "#b23b57",
+  "#b5761f", "#4f7d3a", "#b04b8a", "#5a6672",
 ];
 
-export const colorOf = (id) => CATEGORY_COLORS.find((c) => c.id === id) ?? CATEGORY_COLORS[0];
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/** Any hex is valid; anything unrecognised falls back to the first preset. */
+export const colorOf = (value) => (HEX.test(value ?? "") ? value : CATEGORY_COLORS[0]);
+
+/** Icons a category can be marked with. Line icons, chosen from a set. */
+export const CATEGORY_ICONS = [
+  "book", "home", "work", "cart", "heart", "run", "music", "food",
+  "money", "people", "leaf", "star", "tool", "phone", "pen", "globe",
+];
+
+export const iconOf = (value) => (CATEGORY_ICONS.includes(value) ? value : "tag");
 
 /** Tasks grouped into the user's own categories, plus whatever is loose. */
 export const categorise = (tasks, categories) => {

@@ -7,6 +7,9 @@ import {
   cadence,
   categorise,
   colorOf,
+  iconOf,
+  CATEGORY_COLORS,
+  CATEGORY_ICONS,
 } from "./patterns.mjs";
 import { buildDefaults } from "./defaults.mjs";
 
@@ -97,8 +100,8 @@ describe("patterns are observed, never authored", () => {
 
 describe("categories are authored", () => {
   const cats = [
-    { id: "c1", name: "School", color: "blue" },
-    { id: "c2", name: "Home", color: "green" },
+    { id: "c1", name: "School", color: "#2c6fb5" },
+    { id: "c2", name: "Home", color: "#2f8f74" },
   ];
 
   it("groups tasks under their category and leaves the rest loose", () => {
@@ -125,8 +128,20 @@ describe("categories are authored", () => {
     expect(patternsIn([t])[0].name).toBe("Weekdays");
   });
 
-  it("falls back to a real colour for an unknown id", () => {
-    expect(colorOf("nope").id).toBe("green");
-    expect(colorOf("violet").hue).toBe(268);
+  it("accepts any colour, not just the presets", () => {
+    expect(colorOf("#123456")).toBe("#123456");
+    expect(colorOf("#ABCDEF")).toBe("#ABCDEF");
+  });
+
+  it("falls back to a real colour for junk", () => {
+    expect(colorOf("nope")).toBe(CATEGORY_COLORS[0]);
+    expect(colorOf(undefined)).toBe(CATEGORY_COLORS[0]);
+    expect(colorOf("#12345")).toBe(CATEGORY_COLORS[0]);
+  });
+
+  it("offers an icon set, and falls back for junk", () => {
+    expect(CATEGORY_ICONS.length).toBeGreaterThan(8);
+    expect(iconOf("book")).toBe("book");
+    expect(iconOf("nope")).toBe("tag");
   });
 });

@@ -9,7 +9,7 @@
 import { useEffect, useRef } from "react";
 import Icon from "./Icon.jsx";
 
-export default function Popup({ title, sub, onClose, children, footer, width = 460 }) {
+export default function Popup({ title, sub, onClose, children, footer, size = "md" }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -27,8 +27,7 @@ export default function Popup({ title, sub, onClose, children, footer, width = 4
   return (
     <div className="pop-scrim" onClick={onClose}>
       <div
-        className="pop glass"
-        style={{ width }}
+        className={`pop pop-${size} glass`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
