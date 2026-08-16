@@ -13,7 +13,7 @@
  * are the only unit displayed at that resolution.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Icon from "./Icon.jsx";
 import Mark from "./Mark.jsx";
 import { t12, rulerHour, fromDawn } from "./format.js";
@@ -35,6 +35,14 @@ const DIVIDER = 46;
 export const ZOOM_MIN = 0.4;
 export const ZOOM_MAX = 120;
 const ZOOM_FACTOR = 1.6;
+
+/** 100% is the readable default; the readout is relative to that. */
+export const zoomPercent = (scale) => {
+  const pc = scale * 100;
+  if (pc >= 1000) return `${Math.round(pc / 100) * 100}%`;
+  if (pc >= 100) return `${Math.round(pc / 10) * 10}%`;
+  return `${Math.round(pc)}%`;
+};
 
 /** The finest gridline that still leaves ~46px between lines at this scale. */
 function gridFor(px) {
@@ -276,6 +284,64 @@ export default function Timeline({
   }, [jdn, zoom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
+   * Zoom by wheel and by keyboard, the way every other canvas works.
+   *
+   * Ctrl/⌘ + wheel is the platform convention, and a bare pinch on a trackpad
+   * arrives as exactly that. The point under the cursor stays put, otherwise
+   * zooming throws you somewhere else in the day.
+   *
+   * The buttons remain, but they are no longer the only way in.
+   */
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+
+  const zoomAround = useCallback(
+    (factor, clientY) => {
+      const el = scrollRef.current;
+      if (!el || !onZoom) return;
+      const current = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomRef.current));
+      const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, current * factor));
+      if (next === current) return;
+
+      const box = el.getBoundingClientRect();
+      const anchor = clientY == null ? el.clientHeight / 2 : clientY - box.top;
+      const before = (el.scrollTop + anchor) / current;
+
+      onZoom(next);
+      requestAnimationFrame(() => {
+        if (scrollRef.current) scrollRef.current.scrollTop = before * next - anchor;
+      });
+    },
+    [onZoom],
+  );
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !onZoom) return undefined;
+
+    const onWheel = (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;   // plain wheel still scrolls
+      e.preventDefault();
+      zoomAround(Math.exp(-e.deltaY * 0.0015), e.clientY);
+    };
+
+    const onKey = (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "+" || e.key === "=") { e.preventDefault(); zoomAround(ZOOM_FACTOR); }
+      else if (e.key === "-" || e.key === "_") { e.preventDefault(); zoomAround(1 / ZOOM_FACTOR); }
+      else if (e.key === "0") { e.preventDefault(); onZoom(1); }
+    };
+
+    // non-passive: the browser will not let us preventDefault otherwise
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("keydown", onKey);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("keydown", onKey);
+    };
+  }, [zoomAround, onZoom]);
+
+  /**
    * Scrolling between days is FREE. Yesterday, today and tomorrow are one
    * strip of time and you can move through all of it — an earlier version
    * made you click a button to cross a boundary, which turned a scroll into
@@ -324,29 +390,7 @@ export default function Timeline({
 
   return (
     <div className="tl-wrap">
-      {onZoom ? (
-        <div className="tl-zoom">
-          <button
-            type="button"
-            aria-label="Less detail"
-            disabled={scale <= ZOOM_MIN * 1.001}
-            onClick={() => onZoom(Math.max(ZOOM_MIN, scale / ZOOM_FACTOR))}
-          >
-            <Icon name="minus" size={14} />
-          </button>
-          <span className="tl-zoom-l" title="Gridline spacing">{zoomName(step)}</span>
-          <button
-            type="button"
-            aria-label="More detail"
-            disabled={scale >= ZOOM_MAX * 0.999}
-            onClick={() => onZoom(Math.min(ZOOM_MAX, scale * ZOOM_FACTOR))}
-          >
-            <Icon name="plus" size={14} />
-          </button>
-        </div>
-      ) : null}
-
-      <div className="tl-scroll" style={{ height }} ref={scrollRef}>
+      <div className="tl-scroll" style={{ height }} ref={scrollRef} tabIndex={-1}>
         <div className="tl-track" style={{ height: days.length * DAY_H + (days.length - 1) * DIVIDER }}>
           {days.map((d, i) => (
             <div key={d} className={`tl-day${d === jdn ? " current" : " neighbour"}`}
@@ -373,6 +417,37 @@ export default function Timeline({
       </div>
       <div className="tl-fade top" />
       <div className="tl-fade bot" />
+
+      {onZoom ? (
+        <div className="tl-zoom">
+          <button
+            type="button"
+            aria-label="Zoom out"
+            disabled={scale <= ZOOM_MIN * 1.001}
+            onClick={() => zoomAround(1 / ZOOM_FACTOR)}
+          >
+            <Icon name="minus" size={14} />
+          </button>
+          <button
+            type="button"
+            className="tl-zoom-l"
+            title="Reset zoom · ctrl+scroll or ctrl +/− also work"
+            aria-label={`Zoom ${zoomPercent(scale)} — reset`}
+            onClick={() => onZoom(1)}
+          >
+            {zoomPercent(scale)}
+            <small>{zoomName(step)}</small>
+          </button>
+          <button
+            type="button"
+            aria-label="Zoom in"
+            disabled={scale >= ZOOM_MAX * 0.999}
+            onClick={() => zoomAround(ZOOM_FACTOR)}
+          >
+            <Icon name="plus" size={14} />
+          </button>
+        </div>
+      ) : null}
 
     </div>
   );

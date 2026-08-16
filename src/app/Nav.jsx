@@ -31,7 +31,10 @@ export default function Nav({ now, tasks, categories, prototypeMode = false }) {
   const [view, setView] = useState({ y: today.ec.y, m: today.ec.m });
 
   const hits = useMemo(
-    () => (q.trim() ? search(q, now, { tasks, categories, prototypeMode }) : suggestions(now)),
+    () =>
+      q.trim()
+        ? search(q, now, { tasks, categories, prototypeMode })
+        : suggestions(now, { prototypeMode }),
     [q, now, tasks, categories, prototypeMode],
   );
 

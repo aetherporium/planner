@@ -29,7 +29,7 @@ import {
   isGcLeap,
 } from "../calendar.mjs";
 import { patternsIn } from "../patterns.mjs";
-import { prototypeHits } from "./prototypes.js";
+import { prototypeHits, allPrototypeHits } from "./prototypes.js";
 
 const PLACES = [
   ["Settings", "#/settings", "Preferences and demo content"],
@@ -191,8 +191,11 @@ export const search = (q, now, ctx = {}) => {
 };
 
 /** With an empty field: where you are likely to want to go. */
-export const suggestions = (now) => [
+export const suggestions = (now, { prototypeMode = false } = {}) => [
   dayHit(now.jdn, "today"),
   dayHit(now.jdn + 1, "tomorrow"),
   dayHit(now.jdn - 1, "yesterday"),
+  // With the mode on, every open question is listed the moment the panel
+  // opens — you should not have to know the word "prototype" to find them.
+  ...(prototypeMode ? allPrototypeHits() : []),
 ];

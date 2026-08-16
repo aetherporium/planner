@@ -50,14 +50,13 @@ const monthHref = (y, m) => `#/calendar/${y}-${m}`;
 /* ── Top bar: back on the left, theme on the right. Nothing else. ─────── */
 
 /**
- * The bar every page carries.
+ * The bar every page carries: settings and the theme, nothing else.
  *
- * Adding a task lives here, as an icon with no label — prototype variant B
- * settled the weight question, and putting it in the chrome means it is in
- * the same place on every page instead of only where someone thought to put
- * it. Settings likewise: reachable from anywhere, never buried.
+ * Adding a task is NOT here. It belongs on the pages that are about tasks,
+ * where it can say what it does — chrome that follows you everywhere is for
+ * things that apply everywhere, and most pages are not for adding.
  */
-function Top({ back, theme, onToggle, addHref = "#/add", hideAdd }) {
+function Top({ back, theme, onToggle }) {
   return (
     <div className="top">
       {back ? (
@@ -70,11 +69,6 @@ function Top({ back, theme, onToggle, addHref = "#/add", hideAdd }) {
       )}
 
       <div className="top-acts">
-        {hideAdd ? null : (
-          <a className="top-btn add" href={addHref} aria-label="New task" title="New task">
-            <Icon name="plus" size={17} />
-          </a>
-        )}
         <a className="top-btn" href="#/settings" aria-label="Settings" title="Settings">
           <Icon name="settings" size={16} />
         </a>
@@ -110,8 +104,7 @@ function DayPage({ jdn, planner, now, theme, onToggle }) {
 
   return (
     <div className="page day-page">
-      <Top back={isToday ? null : { href: "#/", label: "Today" }} theme={theme} onToggle={onToggle}
-        addHref={`#/day/${jdn}/add`} />
+      <Top back={isToday ? null : { href: "#/", label: "Today" }} theme={theme} onToggle={onToggle} />
 
       {/* The clock keeps its own corner; the header sits beside it with the
           strip of recent and coming tasks. */}
@@ -542,7 +535,7 @@ function AddPage({ jdn, planner, now, theme, onToggle }) {
   return (
     <div className="page">
       <Top back={{ href: `#/day/${jdn}`, label: jdn === now.jdn ? "Today" : gcShort(day) }}
-        theme={theme} onToggle={onToggle} hideAdd />
+        theme={theme} onToggle={onToggle} />
 
       <form className="glass panel" onSubmit={submit}>
         <h1 className="title" style={{ marginBottom: "var(--sp-5)" }}>Plan something</h1>

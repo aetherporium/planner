@@ -52,6 +52,16 @@ PROTOTYPES.push({
 
 export const findPrototype = (id) => PROTOTYPES.find((p) => p.id === id) ?? null;
 
+/** Every prototype, first variant only — the list you see before typing. */
+export const allPrototypeHits = () =>
+  PROTOTYPES.map((p) => ({
+    kind: "Prototype",
+    label: p.title,
+    sub: p.variants[0][1],
+    why: p.question,
+    href: `#/prototype/${p.id}/${p.variants[0][0]}`,
+  }));
+
 /** Every prototype variant as a searchable destination. */
 export const prototypeHits = (q) => {
   const s = q.trim().toLowerCase();

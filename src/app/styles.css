@@ -1298,6 +1298,22 @@ a.ns-row:hover { background: var(--hover); }
 .dh { align-items: flex-end; padding-top: var(--sp-5); }
 .dh-rel { font-size: var(--f-sm); color: var(--ink-4); }
 
+/**
+ * The date box does not resize with its contents.
+ *
+ * "Wednesday" is the longest day name and the widest Ethiopian month names are
+ * wider still, so the box is cut for the worst case. Otherwise the clock and
+ * the strip beside it shift sideways every single day, which reads as the
+ * layout twitching once a day for no reason.
+ */
+.dh-text {
+  width: 15ch;
+  min-width: 15ch;
+  flex-shrink: 0;
+}
+.dh-line { min-height: 34px; }
+.dh-date { min-height: 21px; }
+
 /* ═══ Day: timeline and the now strip, side by side ═══════════════════ */
 
 .day-split { display: flex; gap: var(--sp-4); align-items: flex-start; }
@@ -1788,40 +1804,10 @@ a.ns-row:hover { background: var(--hover); }
   .tc-pat, .tc-cat, .tc-place { display: none; }
 }
 
-/* ═══ Timeline: zoom, sub-hour lines ══════════════════════════════════ */
+/* ═══ Timeline: finer gridlines ═══════════════════════════════════════
+   (the zoom control itself is positioned further down, bottom-right)     */
 
-.tl-zoom {
-  position: absolute;
-  top: -40px;
-  right: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border-radius: var(--r-full);
-  border: 1px solid var(--line);
-  background: var(--surface);
-  z-index: 6;
-}
-.tl-zoom button {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--r-full);
-  color: var(--ink-3);
-}
-.tl-zoom button:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
-.tl-zoom button:disabled { opacity: 0.3; }
-.tl-zoom-l {
-  font-size: var(--f-xs);
-  color: var(--ink-3);
-  padding: 0 6px;
-  min-width: 46px;
-  text-align: center;
-}
-
-/* the quarter/half-hour lines only exist when zoomed in */
+/* the sub-hour lines only exist when zoomed in */
 .tl-hour.sub .rule { opacity: 0.3; }
 .tl-hour.sub .lab { font-size: 9.5px; color: var(--ink-4); opacity: 0.7; }
 
@@ -2318,3 +2304,104 @@ button.dh-title:hover svg { opacity: 1; }
   .day-top { flex-direction: column; gap: var(--sp-4); }
   .dl { grid-template-columns: 1fr; }
 }
+
+/* ═══ Scrollbars ══════════════════════════════════════════════════════
+   One scrollbar for the whole app: thin, unobtrusive, and only solid
+   enough to grab when you are pointing at it.                          */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: var(--r-full);
+  /* the border is transparent, so the thumb reads thinner than its hit area */
+  border: 3px solid transparent;
+  background-clip: content-box;
+  transition: background var(--dur) var(--ease);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--ink-4); background-clip: content-box; }
+::-webkit-scrollbar-thumb:active { background: var(--ink-3); background-clip: content-box; }
+
+/* the page itself keeps its gutter so content does not jump when it appears */
+html { scrollbar-gutter: stable; }
+
+/* ═══ Zoom control, bottom right of the timeline ══════════════════════ */
+
+.tl-zoom {
+  position: absolute;
+  right: var(--sp-3);
+  bottom: var(--sp-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--line);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  z-index: 6;
+  opacity: 0.55;
+  transition: opacity var(--dur) var(--ease);
+}
+.tl-wrap:hover .tl-zoom, .tl-zoom:focus-within { opacity: 1; }
+
+.tl-zoom button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-full);
+  color: var(--ink-3);
+}
+.tl-zoom button:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+.tl-zoom button:disabled { opacity: 0.3; }
+
+button.tl-zoom-l {
+  width: auto;
+  min-width: 58px;
+  height: 26px;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 8px;
+  font-size: var(--f-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  line-height: 1.15;
+}
+button.tl-zoom-l small { font-size: 8.5px; color: var(--ink-4); }
+
+.tl-scroll:focus { outline: none; }
+
+/* ═══ Blueprints: the two add buttons ═════════════════════════════════ */
+
+.btn.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+  font-weight: var(--w-medium);
+}
+[data-theme="dark"] .btn.primary { color: #10201b; }
+.btn.primary:hover { opacity: 0.92; border-color: transparent; }
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  color: var(--ink-3);
+  margin-left: auto;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.icon-btn:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+.bp-list-head { gap: var(--sp-3); }
+.bp-list-head .seg { margin-left: 0; }

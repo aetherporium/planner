@@ -159,11 +159,15 @@ export default function Blueprints({ planner, now, Top, theme, onToggle }) {
 
   return (
     <div className="page">
-      <Top back={{ href: "#/", label: "Today" }} theme={theme} onToggle={onToggle}
-        addHref={`#/day/${now.jdn}/add`} />
+      <Top back={{ href: "#/", label: "Today" }} theme={theme} onToggle={onToggle} />
 
       <div className="bp-hero">
         <h1 className="title">Blueprints</h1>
+        {/* The page-level action, stated in words. */}
+        <a className="btn primary" href={`#/day/${now.jdn}/add`}>
+          <Icon name="plus" size={16} />
+          New task
+        </a>
       </div>
 
       {/* ── top half: the shelves ── */}
@@ -214,6 +218,11 @@ export default function Blueprints({ planner, now, Top, theme, onToggle }) {
           <h2 className="section" style={{ margin: 0 }}>
             All tasks <span className="dim">({tasks.length})</span>
           </h2>
+          {/* The same action beside the list it adds to — minimal, since the
+              page header has already said it in words. */}
+          <a className="icon-btn" href={`#/day/${now.jdn}/add`} aria-label="New task" title="New task">
+            <Icon name="plus" size={15} />
+          </a>
           <div className="seg">
             {[["time", "Time"], ["name", "Name"], ["length", "Length"]].map(([k, label]) => (
               <button key={k} className={sort === k ? "on" : ""} onClick={() => setSort(k)}>
