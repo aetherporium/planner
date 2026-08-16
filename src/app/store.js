@@ -81,6 +81,7 @@ export const DEFAULT_SETTINGS = {
   confirmDayChange: true,  // scrolling into a neighbour asks before switching
   prototypeMode: false,    // show unfinished design work inside the app
   zoom: 1,                 // timeline detail: 0.5 = whole day, 3 = minute-level
+  calView: "grid",         // grid | list — which shape the calendar opens in
 };
 
 /**

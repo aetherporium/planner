@@ -21,7 +21,7 @@ const EC_M_AM = [
 ];
 const DOW_AM_2 = ["እሑ", "ሰኞ", "ማክ", "ረቡ", "ሐሙ", "ዓር", "ቅዳ"];
 
-export default function Nav({ now, tasks, categories, prototypeMode = false }) {
+export default function Nav({ now, tasks, categories, prototypeMode = false, onPrototypeMode }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
@@ -30,12 +30,19 @@ export default function Nav({ now, tasks, categories, prototypeMode = false }) {
   const today = dayFromJdn(now.jdn);
   const [view, setView] = useState({ y: today.ec.y, m: today.ec.m });
 
+  /**
+   * `now` is a fresh object every second, so depending on it directly rebuilt
+   * every result on every tick while you were still typing. Searching only
+   * cares which day it is and what minute we are in — seconds and
+   * milliseconds are for the clock face, not for the results.
+   */
   const hits = useMemo(
     () =>
       q.trim()
-        ? search(q, now, { tasks, categories, prototypeMode })
-        : suggestions(now, { prototypeMode }),
-    [q, now, tasks, categories, prototypeMode],
+        ? search(q, { jdn: now.jdn, minutes: now.minutes }, { tasks, categories, prototypeMode })
+        : suggestions({ jdn: now.jdn, minutes: now.minutes }, { prototypeMode }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [q, now.jdn, now.minutes, tasks, categories, prototypeMode],
   );
 
   /**
@@ -192,11 +199,23 @@ export default function Nav({ now, tasks, categories, prototypeMode = false }) {
               <a href="#/calendar" onClick={() => setOpen(false)}>Calendar</a>
               <a href="#/blueprints" onClick={() => setOpen(false)}>Blueprints</a>
               <a href="#/settings" onClick={() => setOpen(false)}>Settings</a>
-              {prototypeMode ? (
-                <a className="go-proto" href="#/settings" onClick={() => setOpen(false)}>
-                  Prototype mode on
-                </a>
-              ) : null}
+              {/*
+                * The switch itself, not a signpost to it. Prototypes are
+                * listed in this panel, so the control that makes them appear
+                * belongs in the same place — turning it on fills the results
+                * behind it immediately, without closing anything or going to
+                * Settings first. Settings keeps its copy; this is the same
+                * setting seen from where it is used.
+                */}
+              <button
+                type="button"
+                className={`go-proto${prototypeMode ? " on" : ""}`}
+                aria-pressed={prototypeMode}
+                onClick={() => onPrototypeMode?.(!prototypeMode)}
+              >
+                <span className="go-proto-dot" aria-hidden="true" />
+                Prototype mode
+              </button>
             </div>
           </div>
         </div>

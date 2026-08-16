@@ -4,8 +4,8 @@
  * are actually enforced in the UI, not just in the pure modules.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, within, fireEvent } from "@testing-library/react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { render, screen, cleanup, within, fireEvent, act } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { PROTOTYPES } from "./prototypes.js";
 
@@ -14,7 +14,7 @@ import App from "./App.jsx";
 import { parseHash } from "./hooks.js";
 import { readNow, ruleIdOf, ruleById } from "./store.js";
 import { t12, parts, fromDawn, parseEth, DAWN } from "./format.js";
-import { dayFromJdn } from "../calendar.mjs";
+import { dayFromJdn, ecMonthDays } from "../calendar.mjs";
 
 const at = (hash) => {
   window.location.hash = hash;
@@ -1410,13 +1410,51 @@ describe("prototypes appear inside the go-anywhere panel", () => {
     expect(heads).toContain("Go to");
   });
 
-  it("says the mode is on, and links to where to turn it off", () => {
+  it("carries the switch itself, pressed, when the mode is on", () => {
     enable();
     const { container } = at("#/");
     fireEvent.click(container.querySelector("button.go"));
-    const flag = document.querySelector(".go-proto");
-    expect(flag.textContent).toMatch(/Prototype mode on/);
-    expect(flag.getAttribute("href")).toBe("#/settings");
+    const flag = document.querySelector("button.go-proto");
+    expect(flag).not.toBeNull();
+    expect(flag.textContent).toMatch(/Prototype mode/);
+    expect(flag.getAttribute("aria-pressed")).toBe("true");
+    expect(flag.className).toMatch(/\bon\b/);
+  });
+
+  it("turns the mode on from inside the panel, without leaving it", () => {
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector("button.go"));
+    expect(document.querySelectorAll(".go-hit").length).toBeGreaterThan(0);
+    const before = [...document.querySelectorAll(".go-sec-h")].map((h) => h.textContent);
+    expect(before).not.toContain("Prototypes");
+
+    fireEvent.click(document.querySelector("button.go-proto"));
+
+    // the panel is still open, and the prototypes are now listed in it
+    expect(document.querySelector(".go-panel")).not.toBeNull();
+    const after = [...document.querySelectorAll(".go-sec-h")].map((h) => h.textContent);
+    expect(after).toContain("Prototypes");
+    expect(document.querySelector("button.go-proto").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("turns the mode back off again, and the prototypes go with it", () => {
+    enable();
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector("button.go"));
+    expect([...document.querySelectorAll(".go-sec-h")].map((h) => h.textContent))
+      .toContain("Prototypes");
+    fireEvent.click(document.querySelector("button.go-proto"));
+    expect(document.querySelector(".go-panel")).not.toBeNull();
+    expect([...document.querySelectorAll(".go-sec-h")].map((h) => h.textContent))
+      .not.toContain("Prototypes");
+    expect(document.querySelector("button.go-proto").getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("remembers the choice the panel made", () => {
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector("button.go"));
+    fireEvent.click(document.querySelector("button.go-proto"));
+    expect(JSON.parse(localStorage.getItem("planner:settings")).prototypeMode).toBe(true);
   });
 
   it("shows no such section when the mode is off", () => {
@@ -1425,7 +1463,10 @@ describe("prototypes appear inside the go-anywhere panel", () => {
     fireEvent.change(document.querySelector(".go-field input"), { target: { value: "calendar" } });
     expect([...document.querySelectorAll(".go-sec-h")].map((h) => h.textContent))
       .not.toContain("Prototypes");
-    expect(document.querySelector(".go-proto")).toBeNull();
+    // the switch is always there — that is how you turn the mode on
+    const flag = document.querySelector("button.go-proto");
+    expect(flag.getAttribute("aria-pressed")).toBe("false");
+    expect(flag.className).not.toMatch(/\bon\b/);
   });
 });
 
@@ -1711,5 +1752,159 @@ describe("prototype mode reaches the go-anywhere panel", () => {
     fireEvent.click(container.querySelector("button.go"));
     expect([...document.querySelectorAll(".go-hit")].some((r) => /Prototype/.test(r.textContent)))
       .toBe(false);
+  });
+});
+
+/**
+ * The clock re-renders the whole page once a second. Anything that grabs
+ * focus on render therefore grabs it once a second, which is faster than
+ * anyone types. These are the fields that sit inside a popup while the
+ * clock is ticking behind them.
+ */
+describe("a field keeps the caret while the clock ticks", () => {
+  beforeEach(() => { cleanup(); localStorage.clear(); });
+
+  /*
+   * Navigate by rewriting history rather than assigning location.hash:
+   * jsdom dispatches hashchange asynchronously, so under fake timers the
+   * assignment made by `at` lands *inside* the tick we are advancing and
+   * closes the very popup under test. That is a property of the test
+   * harness, not of the app.
+   */
+  const open = (hash) => {
+    window.history.replaceState(null, "", hash);
+    return render(<App />);
+  };
+
+  it("the new-category field is not interrupted mid-word", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = open("#/blueprints");
+      const mk = [...container.querySelectorAll("button")]
+        .find((b) => b.getAttribute("aria-label") === "New category");
+      fireEvent.click(mk);
+
+      const input = document.querySelector(".pop input");
+      input.focus();
+      fireEvent.change(input, { target: { value: "Sch" } });
+
+      act(() => { vi.advanceTimersByTime(5100); });
+
+      const still = document.querySelector(".pop input");
+      expect(still).toBe(input);
+      expect(document.activeElement).toBe(still);
+      expect(still.value).toBe("Sch");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("the go-anywhere field is not interrupted mid-word", () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = open("#/");
+      fireEvent.click(container.querySelector("button.go"));
+      const input = document.querySelector(".go-field input");
+      input.focus();
+      fireEvent.change(input, { target: { value: "lun" } });
+
+      act(() => { vi.advanceTimersByTime(5100); });
+
+      const still = document.querySelector(".go-field input");
+      expect(still).toBe(input);
+      expect(document.activeElement).toBe(still);
+      expect(still.value).toBe("lun");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("the popup binds its listeners once, not once per tick", () => {
+    const src = readFileSync("src/app/Popup.jsx", "utf8");
+    // the focus call must live in an effect that never re-runs
+    expect(src).toMatch(/useEffect\(\(\) => \{\s*ref\.current\?\.focus\(\);\s*\}, \[\]\);/);
+    // and the close handler must be reached through a ref, not a dependency
+    expect(src).toMatch(/closeRef\.current/);
+    expect(src).not.toMatch(/\}, \[onClose\]\);/);
+  });
+});
+
+/**
+ * The calendar has two shapes and a switch. What it must not have is filler:
+ * the lead-in of a month used to be padded with empty boxes that still drew a
+ * hover target, which is what read as overlapping blank dates.
+ */
+describe("the calendar has no blank boxes", () => {
+  beforeEach(() => { cleanup(); localStorage.clear(); });
+
+  it("draws one cell per real day and nothing else", () => {
+    // Sene 2018 starts on a Friday — five columns of lead-in under the old build
+    const { container } = at("#/calendar/2018-12");
+    const days = ecMonthDays(2018, 12);
+    const cells = [...container.querySelectorAll(".cell")];
+    expect(cells).toHaveLength(days.length);
+    expect(container.querySelectorAll(".blank")).toHaveLength(0);
+    // every cell is a real destination, none is an inert box
+    expect(cells.every((c) => c.tagName === "A" && c.getAttribute("href"))).toBe(true);
+  });
+
+  it("starts the month under its own weekday, by placement not by padding", () => {
+    const { container } = at("#/calendar/2018-12");
+    const first = container.querySelector(".cell");
+    const lead = ecMonthDays(2018, 12)[0].dow;
+    expect(first.style.gridColumnStart).toBe(String(lead + 1));
+  });
+
+  it("keeps the seven columns unsquished in both shapes", () => {
+    expect(CSS).toMatch(/\.cal-grid\s*\{[^}]*repeat\(7,\s*minmax\(0,\s*1fr\)\)/);
+    expect(CSS).not.toMatch(/\.cell\.blank/);
+  });
+
+  it("has no blank cells in any month of the year", () => {
+    for (let m = 1; m <= 13; m += 1) {
+      cleanup();
+      const { container } = at(`#/calendar/2018-${m}`);
+      expect(container.querySelectorAll(".blank")).toHaveLength(0);
+      expect(container.querySelectorAll(".cell")).toHaveLength(ecMonthDays(2018, m).length);
+    }
+  });
+});
+
+describe("the calendar's two views", () => {
+  beforeEach(() => { cleanup(); localStorage.clear(); });
+
+  it("offers exactly two, grid first", () => {
+    const { container } = at("#/calendar");
+    const tabs = [...container.querySelectorAll(".vt-btn")];
+    expect(tabs.map((b) => b.textContent.trim())).toEqual(["Grid", "List"]);
+    expect(tabs[0].getAttribute("aria-selected")).toBe("true");
+    expect(container.querySelector(".cal-grid")).not.toBeNull();
+    expect(container.querySelector(".cal-list")).toBeNull();
+  });
+
+  it("switches to a row per day, with a preview beside it", () => {
+    const { container } = at("#/calendar/2018-12");
+    fireEvent.click([...container.querySelectorAll(".vt-btn")].find((b) => /List/.test(b.textContent)));
+    expect(container.querySelector(".cal-grid")).toBeNull();
+    const rows = [...container.querySelectorAll(".dayrow")];
+    expect(rows).toHaveLength(ecMonthDays(2018, 12).length);
+    expect(rows[0].querySelector(".dr-preview")).not.toBeNull();
+    expect(rows[0].getAttribute("href")).toMatch(/^#\/day\/\d+$/);
+  });
+
+  it("remembers which view you chose", () => {
+    const { container } = at("#/calendar");
+    fireEvent.click([...container.querySelectorAll(".vt-btn")].find((b) => /List/.test(b.textContent)));
+    expect(JSON.parse(localStorage.getItem("planner:settings")).calView).toBe("list");
+    cleanup();
+    const again = at("#/calendar");
+    expect(again.container.querySelector(".cal-list")).not.toBeNull();
+  });
+
+  it("says nothing about colour yet", () => {
+    // the rewrite is structural: no category colour is painted onto a day
+    const src = readFileSync("src/app/App.jsx", "utf8");
+    const list = src.slice(src.indexOf("function CalendarList"), src.indexOf("function CalendarPage"));
+    expect(list).not.toMatch(/colorOf|background(Color)?:/);
   });
 });

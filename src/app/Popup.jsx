@@ -12,17 +12,36 @@ import Icon from "./Icon.jsx";
 export default function Popup({ title, sub, onClose, children, footer, size = "md" }) {
   const ref = useRef(null);
 
+  /**
+   * The close handler is nearly always written inline at the call site, so a
+   * new function arrives on every render of the page behind us — and the page
+   * re-renders once a second to keep the clock live. Held in a ref, the
+   * listeners below can be bound once instead of being torn down and rebuilt
+   * on every tick.
+   */
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
   useEffect(() => {
-    const onKey = (e) => e.key === "Escape" && onClose();
-    const onHash = () => onClose();
+    const onKey = (e) => e.key === "Escape" && closeRef.current();
+    const onHash = () => closeRef.current();
     window.addEventListener("keydown", onKey);
     window.addEventListener("hashchange", onHash);
-    ref.current?.focus();
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("hashchange", onHash);
     };
-  }, [onClose]);
+  }, []);
+
+  /**
+   * Focus moves to the dialog when it opens — once. This used to sit in the
+   * effect above, which re-ran every second along with the clock, and so it
+   * stole the caret back out of whatever field you were typing in about as
+   * fast as you could type. Opening focuses; typing is then left alone.
+   */
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
 
   return (
     <div className="pop-scrim" onClick={onClose}>

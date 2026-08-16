@@ -597,6 +597,96 @@ a.row:hover { background: var(--hover); }
 
 .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
 
+/* Head tools: the view switch sits with the month steppers, not above them. */
+.cal-tools { display: flex; align-items: center; gap: var(--sp-3); }
+
+.viewtog {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+}
+.vt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border: none;
+  border-radius: var(--r-full);
+  background: none;
+  font: inherit;
+  font-size: var(--f-xs);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.vt-btn:hover { color: var(--ink); }
+.vt-btn.on { background: var(--surface-2); color: var(--ink); }
+
+/* ── Calendar, day list ───────────────────────────────────────────────
+   A row per day. The month reads as a sequence here, and there is room
+   beside each date for what is actually planned that day. */
+
+.cal-list { display: flex; flex-direction: column; }
+
+.dayrow {
+  display: grid;
+  grid-template-columns: 42px 34px 62px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 9px var(--sp-2);
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: inherit;
+  text-decoration: none;
+  transition: background var(--dur) var(--ease);
+}
+.dayrow:last-child { border-bottom: none; }
+.dayrow:hover { background: var(--hover); }
+.dayrow.weekend .dr-dow { color: var(--ink-4); }
+.dayrow.today { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.dayrow.today .dr-num { color: var(--accent); font-weight: var(--w-semibold); }
+
+.dr-dow { font-size: var(--f-xs); color: var(--ink-3); }
+.dr-num { font-size: var(--f-lg); line-height: 1; letter-spacing: var(--ls-tight); }
+.dr-gc { font-size: var(--f-xs); color: var(--ink-4); }
+.dr-count { font-size: var(--f-xs); color: var(--ink-4); text-align: right; }
+
+.dr-preview {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.dr-task {
+  font-size: var(--f-xs);
+  color: var(--ink-3);
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 15ch;
+  flex: 0 1 auto;
+}
+.dr-hol {
+  font-size: var(--f-xs);
+  color: var(--gold);
+  padding: 2px 8px;
+  border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+  border-radius: var(--r-full);
+  flex: 0 0 auto;
+}
+.dr-more { font-size: var(--f-xs); color: var(--ink-4); flex: 0 0 auto; }
+
+@media (max-width: 620px) {
+  .dayrow { grid-template-columns: 38px 30px minmax(0, 1fr) 24px; }
+  .dr-gc { display: none; }
+}
+
 .cal-dow {
   text-align: center;
   font-size: var(--f-xs);
@@ -619,7 +709,6 @@ a.row:hover { background: var(--hover); }
 }
 
 a.cell:hover { background: var(--hover); border-color: var(--line); }
-.cell.blank { pointer-events: none; }
 
 .cell .ec {
   font-size: var(--f-md);
@@ -2147,7 +2236,34 @@ button.dh-title:hover svg { opacity: 1; }
   color: var(--ink-4);
   padding: var(--sp-2) var(--sp-3) 5px;
 }
-.go-proto { color: var(--gold) !important; margin-left: auto; }
+/* The prototype switch in the panel footer. Off it reads as one more quiet
+   footer item; on it carries the gold the prototype chrome uses elsewhere. */
+.go-proto {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+  background: none;
+  font: inherit;
+  font-size: var(--f-xs);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease),
+    background var(--dur) var(--ease);
+}
+.go-proto:hover { color: var(--ink); border-color: var(--line-strong); background: var(--hover); }
+.go-proto-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-full);
+  border: 1px solid currentColor;
+  flex: 0 0 auto;
+}
+.go-proto.on { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 45%, transparent); }
+.go-proto.on .go-proto-dot { background: var(--gold); border-color: var(--gold); }
 
 /* ═══ Mini calendar ═══════════════════════════════════════════════════ */
 

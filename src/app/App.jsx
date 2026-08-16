@@ -173,6 +173,93 @@ function DayPage({ jdn, planner, now, theme, onToggle }) {
 
 /* ── Calendar ─────────────────────────────────────────────────────────── */
 
+/**
+ * Two ways to read a month, and a switch between them.
+ *
+ * Grid is the month as a shape — where the weekends fall, how the holidays
+ * sit. There are no filler cells: the first day is placed in its own weekday
+ * column with `grid-column-start`, so the row simply begins where it should.
+ * The old build padded the lead with empty boxes that still drew a hover
+ * target and still took a tab stop, which is why they read as overlapping
+ * blank dates. Nothing is drawn now where no day exists.
+ *
+ * List is the month as a sequence — a row per day, with what is planned that
+ * day shown beside it, which the grid has no room for.
+ */
+
+const CAL_VIEWS = [
+  ["grid", "Grid", "calendar"],
+  ["list", "List", "list"],
+];
+
+function CalendarGrid({ days, lead, planner, now }) {
+  return (
+    <div className="cal-grid" role="grid">
+      {DOW_AM_2.map((d, i) => (
+        <div key={d} className="cal-dow am" title={DOW[i]} role="columnheader">{d}</div>
+      ))}
+      {days.map((d, i) => {
+        const count = planner.tasksFor(d.jdn).length;
+        const logs = planner.entries.filter((e) => e.dayJdn === d.jdn).length;
+        return (
+          <a
+            key={d.jdn}
+            className={["cell", d.jdn === now.jdn ? "today" : "", d.isWeekend ? "weekend" : "",
+              d.holidays.length ? "hol" : ""].filter(Boolean).join(" ")}
+            /* the only placement rule needed: day one sits under its weekday */
+            style={i === 0 && lead ? { gridColumnStart: lead + 1 } : undefined}
+            href={`#/day/${d.jdn}`}
+            title={`${d.dowName} ${d.gc.d} ${GC_MONTHS[d.gc.m - 1]} — ${count} planned`}
+          >
+            <span className="ec am">{d.ec.d}</span>
+            <span className="gc">{d.gc.d} {GC_MONTHS[d.gc.m - 1].slice(0, 3)}</span>
+            <span className="marks">
+              {count ? <span className="mark" /> : null}
+              {logs ? <span className="mark accent" /> : null}
+              {d.holidays.length ? <span className="mark gold" /> : null}
+            </span>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+function CalendarList({ days, planner, now }) {
+  return (
+    <div className="cal-list">
+      {days.map((d) => {
+        const tasks = planner.tasksFor(d.jdn);
+        const preview = tasks.slice(0, 4);
+        return (
+          <a
+            key={d.jdn}
+            className={["dayrow", d.jdn === now.jdn ? "today" : "", d.isWeekend ? "weekend" : "",
+              d.holidays.length ? "hol" : ""].filter(Boolean).join(" ")}
+            href={`#/day/${d.jdn}`}
+          >
+            <span className="dr-dow">{d.dowName.slice(0, 3)}</span>
+            <span className="dr-num am">{d.ec.d}</span>
+            <span className="dr-gc">{d.gc.d} {GC_MONTHS[d.gc.m - 1].slice(0, 3)}</span>
+            <span className="dr-preview">
+              {d.holidays.length ? (
+                <span className="dr-hol">{d.holidays[0].name ?? d.holidays[0]}</span>
+              ) : null}
+              {preview.map((t) => (
+                <span key={t.id} className="dr-task">{t.title}</span>
+              ))}
+              {tasks.length > preview.length ? (
+                <span className="dr-more">+{tasks.length - preview.length}</span>
+              ) : null}
+            </span>
+            <span className="dr-count">{tasks.length || ""}</span>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
 function CalendarPage({ ecY, ecM, planner, now, theme, onToggle }) {
   const today = dayFromJdn(now.jdn);
   const y = ecY ?? today.ec.y;
@@ -181,6 +268,9 @@ function CalendarPage({ ecY, ecM, planner, now, theme, onToggle }) {
   const lead = days.length ? days[0].dow : 0;
   const prevM = m === 1 ? { y: y - 1, m: 13 } : { y, m: m - 1 };
   const nextM = m === 13 ? { y: y + 1, m: 1 } : { y, m: m + 1 };
+
+  const [view, setView] = useState(() => planner.settings.calView ?? "grid");
+  const pick = (v) => { setView(v); planner.setSetting("calView", v); };
 
   const gcSpan = days.length
     ? (() => {
@@ -205,43 +295,36 @@ function CalendarPage({ ecY, ecM, planner, now, theme, onToggle }) {
             </h1>
             <div className="sub">{EC_MONTHS[m - 1]} · {gcSpan}</div>
           </div>
-          <div className="datenav">
-            <a className="stepper" href={monthHref(prevM.y, prevM.m)} aria-label="Previous month">
-              <Icon name="chevLeft" size={16} />
-            </a>
-            <a className="stepper" href={monthHref(nextM.y, nextM.m)} aria-label="Next month">
-              <Icon name="chevRight" size={16} />
-            </a>
+          <div className="cal-tools">
+            <div className="viewtog" role="tablist" aria-label="Calendar view">
+              {CAL_VIEWS.map(([key, label, icon]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  className={`vt-btn${view === key ? " on" : ""}`}
+                  aria-selected={view === key}
+                  onClick={() => pick(key)}
+                >
+                  <Icon name={icon} size={13} />
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="datenav">
+              <a className="stepper" href={monthHref(prevM.y, prevM.m)} aria-label="Previous month">
+                <Icon name="chevLeft" size={16} />
+              </a>
+              <a className="stepper" href={monthHref(nextM.y, nextM.m)} aria-label="Next month">
+                <Icon name="chevRight" size={16} />
+              </a>
+            </div>
           </div>
         </div>
 
-        <div className="cal-grid">
-          {DOW_AM_2.map((d, i) => (
-            <div key={d} className="cal-dow am" title={DOW[i]}>{d}</div>
-          ))}
-          {Array.from({ length: lead }, (_, i) => <div key={`b${i}`} className="cell blank" />)}
-          {days.map((d) => {
-            const count = planner.tasksFor(d.jdn).length;
-            const logs = planner.entries.filter((e) => e.dayJdn === d.jdn).length;
-            return (
-              <a
-                key={d.jdn}
-                className={["cell", d.jdn === now.jdn ? "today" : "", d.isWeekend ? "weekend" : "",
-                  d.holidays.length ? "hol" : ""].filter(Boolean).join(" ")}
-                href={`#/day/${d.jdn}`}
-                title={`${d.dowName} ${d.gc.d} ${GC_MONTHS[d.gc.m - 1]} — ${count} planned`}
-              >
-                <span className="ec am">{d.ec.d}</span>
-                <span className="gc">{d.gc.d} {GC_MONTHS[d.gc.m - 1].slice(0, 3)}</span>
-                <span className="marks">
-                  {count ? <span className="mark" /> : null}
-                  {logs ? <span className="mark accent" /> : null}
-                  {d.holidays.length ? <span className="mark gold" /> : null}
-                </span>
-              </a>
-            );
-          })}
-        </div>
+        {view === "grid"
+          ? <CalendarGrid days={days} lead={lead} planner={planner} now={now} />
+          : <CalendarList days={days} planner={planner} now={now} />}
       </div>
     </div>
   );
@@ -755,6 +838,7 @@ export default function App() {
         tasks={planner.allTasks}
         categories={planner.categories}
         prototypeMode={planner.settings.prototypeMode}
+        onPrototypeMode={(v) => planner.setSetting("prototypeMode", v)}
       />
     </div>
   );
