@@ -691,7 +691,7 @@ describe("blueprints do not look like the day page", () => {
     expect(pop.querySelector(".tl-day")).toBeNull();
     expect(pop.querySelector(".tl-hour")).toBeNull();
     expect(pop.querySelector(".water")).toBeNull();
-    expect(pop.querySelectorAll(".sched .slot").length).toBe(5);
+    expect(pop.querySelectorAll(".sched .slot").length).toBe(6);
   });
 
   it("sizes each slot bar by duration", () => {
@@ -714,7 +714,10 @@ describe("blueprints do not look like the day page", () => {
     const { container } = at("#/blueprints");
     fireEvent.click(container.querySelector(".sq"));
     const names = [...document.querySelectorAll(".pop .slot-n")].map((n) => n.textContent);
-    expect(names).toEqual(["Wake", "Breakfast", "Lunch", "Dinner", "Sleep"]);
+    // Water is spread across the day rather than sitting at a time, so it
+    // leads; everything with a clock position then runs from dawn.
+    expect(names[0]).toBe("Drink water");
+    expect(names.slice(1)).toEqual(["Wake", "Breakfast", "Lunch", "Dinner", "Sleep"]);
   });
 });
 
@@ -896,7 +899,7 @@ describe("blueprints is split, and lists everything", () => {
     expect(container.querySelector(".bp-top")).toBeTruthy();
     expect(container.querySelector(".bp-bottom")).toBeTruthy();
     // Every task appears in the list, defaults included.
-    expect(container.querySelectorAll(".trow").length).toBe(5);
+    expect(container.querySelectorAll(".trow").length).toBe(6);
   });
 
   it("shows information for each task, not just a name", () => {
@@ -1050,7 +1053,17 @@ describe("the task-form prototype", () => {
 });
 
 describe("prototypes are a section of go anywhere", () => {
+  const enableProto = () => {
+    const s = at("#/settings");
+    const sw = [...s.container.querySelectorAll(".pref")]
+      .find((r) => /Prototype mode/.test(r.textContent))
+      .querySelector('[role="switch"]');
+    fireEvent.click(sw);
+    cleanup();
+  };
+
   it("searching 'prototype' lists them in the panel", () => {
+    enableProto();
     const { container } = at("#/");
     fireEvent.click(container.querySelector("button.go"));
     fireEvent.change(document.querySelector(".go-field input"), { target: { value: "prototype" } });
@@ -1060,11 +1073,20 @@ describe("prototypes are a section of go anywhere", () => {
   });
 
   it("choosing one goes straight to that variant", () => {
+    enableProto();
     const { container } = at("#/");
     fireEvent.click(container.querySelector("button.go"));
     fireEvent.change(document.querySelector(".go-field input"), { target: { value: "button" } });
     fireEvent.keyDown(window, { key: "Enter" });
     expect(window.location.hash).toMatch(/^#\/prototype\/addbtn\/[A-D]$/);
+  });
+
+  it("stays out of the way until prototype mode is on", () => {
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector("button.go"));
+    fireEvent.change(document.querySelector(".go-field input"), { target: { value: "prototype" } });
+    expect([...document.querySelectorAll(".go-list .go-hit")]
+      .some((r) => /Prototype/.test(r.textContent))).toBe(false);
   });
 
   it("the register is the only list — settings reads from it", () => {
@@ -1114,5 +1136,192 @@ describe("the add-button prototype", () => {
     expect(container.querySelector(".sw-count").textContent).toBe("1/4");
     const next = container.querySelector('.switcher a[aria-label="Next variant"]');
     expect(next.getAttribute("href")).toBe("#/prototype/addbtn/B");
+  });
+});
+
+describe("the strips actually scroll", () => {
+  it("keeps cards at a fixed width so the row overflows", () => {
+    // flex:0 0 auto lets a card shrink to its content; a fixed basis does not.
+    expect(CSS).toMatch(/\.sq \{[^}]*flex: 0 0 128px/);
+    expect(CSS).toMatch(/\.card-strip \{[^}]*flex-wrap: nowrap/);
+    expect(CSS).toMatch(/\.card-strip \{[^}]*overflow-x: auto/);
+    // A flex child will not overflow its parent without this.
+    expect(CSS).toMatch(/\.card-strip \{[^}]*min-width: 0/);
+  });
+
+  it("shows a scrollbar rather than hiding it", () => {
+    expect(CSS).not.toMatch(/\.card-strip::-webkit-scrollbar \{ display: none/);
+    expect(CSS).toMatch(/\.card-strip::-webkit-scrollbar \{[^}]*height/);
+  });
+
+  it("has enough demo content to overflow", () => {
+    const s = at("#/settings");
+    fireEvent.click([...s.container.querySelectorAll("button")].find((b) => /Load demo/.test(b.textContent)));
+    cleanup();
+    const { container } = at("#/blueprints");
+    const strips = container.querySelectorAll(".card-strip");
+    // Patterns strip and categories strip, both past a screen's worth.
+    expect(strips[0].children.length).toBeGreaterThan(8);
+    expect(strips[1].children.length).toBeGreaterThan(5);
+  });
+});
+
+describe("hydration is built in", () => {
+  it("ships as a default, like waking and eating", () => {
+    const { container } = at("#/blueprints");
+    expect(container.textContent).toMatch(/Drink water/);
+  });
+
+  it("is a target across the day, not a block on the ruler", () => {
+    const { container } = at("#/");
+    // It has its own band...
+    const band = container.querySelector(".spread-band .tally");
+    expect(band).toBeTruthy();
+    expect(band.textContent).toMatch(/Drink water/);
+    expect(band.textContent).toMatch(/0 \/ 2500 ml/);
+    // ...and no block or hairline anywhere on the timeline.
+    const tl = container.querySelector(".tl-day.current");
+    expect([...tl.querySelectorAll(".ev-title, .mo-name")]
+      .some((n) => /water/i.test(n.textContent))).toBe(false);
+  });
+
+  it("fills up in steps and remembers", () => {
+    const { container } = at("#/");
+    const add = [...container.querySelectorAll(".tally-acts button")]
+      .find((b) => /250/.test(b.textContent));
+    fireEvent.click(add);
+    fireEvent.click(add);
+    expect(container.querySelector(".tally-read").textContent).toMatch(/500 \/ 2500 ml/);
+    const saved = JSON.parse(localStorage.getItem("planner:entries"));
+    expect(saved[0].amount).toBe(500);
+  });
+
+  it("shows where an even pace would be, without scolding", () => {
+    const { container } = at("#/");
+    const tally = container.querySelector(".tally");
+    expect(tally.querySelector(".tally-pace")).toBeTruthy();
+    expect(tally.textContent).not.toMatch(/behind|fail|should have/i);
+  });
+
+  it("cannot go below zero", () => {
+    const { container } = at("#/");
+    const minus = container.querySelector(".tally-acts button");
+    expect(minus.disabled).toBe(true);
+  });
+});
+
+describe("the timeline zooms", () => {
+  it("offers more and less detail", () => {
+    const { container } = at("#/");
+    expect(container.querySelector('[aria-label="More detail"]')).toBeTruthy();
+    expect(container.querySelector('[aria-label="Less detail"]')).toBeTruthy();
+    expect(container.querySelector(".tl-zoom-l").textContent).toBe("Normal");
+  });
+
+  it("adds sub-hour lines as you zoom in", () => {
+    const { container } = at("#/");
+    const before = container.querySelectorAll(".tl-hour").length;
+    fireEvent.click(container.querySelector('[aria-label="More detail"]'));
+    expect(container.querySelectorAll(".tl-hour").length).toBeGreaterThan(before);
+    expect(container.querySelector(".tl-hour.sub")).toBeTruthy();
+  });
+
+  it("makes the day taller when zoomed in", () => {
+    const { container } = at("#/");
+    const h = () => parseFloat(container.querySelector(".tl-day").style.height);
+    const before = h();
+    fireEvent.click(container.querySelector('[aria-label="More detail"]'));
+    expect(h()).toBeGreaterThan(before);
+  });
+
+  it("stops at the ends rather than zooming forever", () => {
+    const { container } = at("#/");
+    for (let i = 0; i < 6; i++) {
+      const b = container.querySelector('[aria-label="More detail"]');
+      if (b.disabled) break;
+      fireEvent.click(b);
+    }
+    expect(container.querySelector('[aria-label="More detail"]').disabled).toBe(true);
+    expect(container.querySelector(".tl-zoom-l").textContent).toBe("Detail");
+  });
+
+  it("remembers the zoom", () => {
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector('[aria-label="More detail"]'));
+    expect(JSON.parse(localStorage.getItem("planner:settings")).zoom).toBeGreaterThan(1);
+  });
+});
+
+describe("opening today lands on what you are doing", () => {
+  it("scrolls to the current or last task, not to the top", () => {
+    const { container } = at("#/");
+    const sc = container.querySelector(".tl-scroll");
+    // jsdom does not lay out, but the component must have set a position
+    // past the first day rather than leaving it at zero.
+    expect(sc.scrollTop).toBeGreaterThan(0);
+  });
+
+  it("anchors on a task rather than the raw clock", () => {
+    const src = readFileSync("src/app/Timeline.jsx", "utf8");
+    expect(src).toMatch(/current \?\? previous/);
+  });
+});
+
+describe("scheduling shows conflicts instead of refusing", () => {
+  const addWith = (start, dur = "60") => {
+    const r = at(`#/day/${readNow().jdn}/add`);
+    fireEvent.change(r.container.querySelector("#t"), { target: { value: "Study" } });
+    fireEvent.change(r.container.querySelector("#f"), { target: { value: "once" } });
+    fireEvent.change(r.container.querySelector("#s"), { target: { value: start } });
+    fireEvent.change(r.container.querySelector("#d"), { target: { value: dur } });
+    return r;
+  };
+
+  it("says nothing when the slot is free", () => {
+    const { container } = addWith("4:00");
+    expect(container.querySelector(".clash")).toBeNull();
+  });
+
+  it("draws the overlap when there is one", () => {
+    // Lunch is 12:30–13:15 clock = 6:30 dawn-anchored.
+    const { container } = addWith("6:30", "45");
+    const clash = container.querySelector(".clash");
+    expect(clash).toBeTruthy();
+    expect(clash.textContent).toMatch(/Lunch/);
+    // Both bars are drawn, so the collision is visible not just described.
+    expect(clash.querySelector(".clash-them")).toBeTruthy();
+    expect(clash.querySelector(".clash-mine")).toBeTruthy();
+  });
+
+  it("still lets you add it — overlapping is sometimes right", () => {
+    const { container } = addWith("6:30", "45");
+    expect(container.querySelector('form button[type="submit"]').disabled).toBe(false);
+    expect(container.querySelector(".clash-foot").textContent).toMatch(/still add it/i);
+  });
+
+  it("offers the nearest slot that fits", () => {
+    const { container } = addWith("6:30", "45");
+    const move = [...container.querySelectorAll(".clash-foot button")]
+      .find((b) => /Move to/.test(b.textContent));
+    expect(move).toBeTruthy();
+    fireEvent.click(move);
+    expect(container.querySelector(".clash")).toBeNull();
+  });
+});
+
+describe("prototype mode", () => {
+  it("is off to begin with", () => {
+    const { container } = at("#/");
+    expect(container.querySelector(".proto-live")).toBeNull();
+  });
+
+  it("marks the app once it is on", () => {
+    const s = at("#/settings");
+    fireEvent.click([...s.container.querySelectorAll(".pref")]
+      .find((r) => /Prototype mode/.test(r.textContent))
+      .querySelector('[role="switch"]'));
+    cleanup();
+    const { container } = at("#/");
+    expect(container.querySelector(".proto-live")).toBeTruthy();
   });
 });

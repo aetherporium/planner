@@ -17,6 +17,106 @@ import { patternsIn, categorise, colorOf, iconOf, patternName } from "../pattern
 import { fmtDur, isMoment } from "../log.mjs";
 import CategoryForm from "./CategoryForm.jsx";
 
+/** A pattern is a rhythm — so show the rhythm, not just a list. */
+function PatternBody({ pattern, slot, catOf }) {
+  const sorted = [...pattern.tasks].sort(
+    (a, b) => fromDawn(a.startMin ?? 0) - fromDawn(b.startMin ?? 0),
+  );
+  const load = sorted.reduce((n, t) => n + (t.duration ?? 0), 0);
+  const places = [...new Set(sorted.map((t) => t.place).filter(Boolean))];
+  const cats = [...new Set(sorted.map((t) => catOf?.(t)?.name).filter(Boolean))];
+
+  // Where in the day this pattern actually lands.
+  const spanFrom = Math.min(...sorted.map((t) => fromDawn(t.startMin ?? 0)));
+  const spanTo = Math.max(...sorted.map((t) => fromDawn(t.startMin ?? 0) + (t.duration ?? 0)));
+
+  return (
+    <>
+      <div className="stat-row">
+        <span className="stat"><b>{sorted.length}</b>tasks</span>
+        <span className="stat"><b>{fmtDur(load)}</b>a day</span>
+        <span className="stat"><b>{pattern.rank}</b>times a year</span>
+        <span className="stat"><b>{fmtDur(Math.round((load * pattern.rank) / 60) * 60)}</b>a year</span>
+      </div>
+
+      {/* the shape of the day this pattern describes */}
+      <div className="daybar" aria-hidden="true">
+        {sorted.map((t) => {
+          const from = fromDawn(t.startMin ?? 0);
+          return (
+            <span
+              key={t.id}
+              className={isMoment(t) ? "daybar-mo" : "daybar-b"}
+              style={{ left: `${(from / 1440) * 100}%`, width: `${((t.duration ?? 0) / 1440) * 100}%` }}
+              title={t.title}
+            />
+          );
+        })}
+      </div>
+      <p className="daybar-legend">
+        <span><Time min={sorted[0]?.startMin ?? 0} size={6} /> first</span>
+        <span>{Math.round(((spanTo - spanFrom) / 1440) * 100)}% of the day</span>
+        <span><Time min={sorted[sorted.length - 1]?.startMin ?? 0} size={6} /> last</span>
+      </p>
+
+      {places.length || cats.length ? (
+        <p className="hint" style={{ marginBottom: "var(--sp-3)" }}>
+          {places.length ? <>Across {places.join(", ")}. </> : null}
+          {cats.length ? <>Touches {cats.join(", ")}.</> : null}
+        </p>
+      ) : null}
+
+      <div className="sched">{sorted.map(slot)}</div>
+    </>
+  );
+}
+
+function CategoryBody({ category, slot }) {
+  const tasks = category.tasks;
+  if (!tasks.length) {
+    return (
+      <div className="cat-empty">
+        Nothing here yet. Open any task and assign it to {category.name}.
+      </div>
+    );
+  }
+
+  const load = tasks.reduce((n, t) => n + (t.duration ?? 0), 0);
+  const recurring = tasks.filter((t) => t.rule).length;
+  const places = [...new Set(tasks.map((t) => t.place).filter(Boolean))];
+  const longest = [...tasks].sort((a, b) => (b.duration ?? 0) - (a.duration ?? 0))[0];
+
+  return (
+    <>
+      <div className="stat-row">
+        <span className="stat"><b>{tasks.length}</b>tasks</span>
+        <span className="stat"><b>{fmtDur(load)}</b>total</span>
+        <span className="stat"><b>{recurring}</b>recurring</span>
+        <span className="stat"><b>{places.length || "—"}</b>places</span>
+      </div>
+
+      {/* how the time inside this category divides up */}
+      <div className="split-bar" aria-hidden="true">
+        {[...tasks]
+          .sort((a, b) => (b.duration ?? 0) - (a.duration ?? 0))
+          .map((t) => (
+            <span
+              key={t.id}
+              style={{ flex: Math.max(1, t.duration ?? 0), background: colorOf(category.color) }}
+              title={`${t.title} — ${fmtDur(t.duration ?? 0)}`}
+            />
+          ))}
+      </div>
+      <p className="hint" style={{ marginBottom: "var(--sp-4)" }}>
+        Longest is <strong>{longest.title}</strong> at {fmtDur(longest.duration ?? 0)}
+        {places.length ? <> · {places.join(", ")}</> : null}
+      </p>
+
+      <div className="sched">{tasks.map(slot)}</div>
+    </>
+  );
+}
+
 export default function Blueprints({ planner, now, Top, theme, onToggle }) {
   const recurring = planner.allTasks.filter((t) => t.rule);
   const patterns = useMemo(() => patternsIn(recurring), [recurring]);
@@ -180,12 +280,7 @@ export default function Blueprints({ planner, now, Top, theme, onToggle }) {
           sub={`${pattern.cadence} · ${pattern.tasks.length} tasks`}
           onClose={() => setOpen(null)}
         >
-          <div className="sched">
-            {pattern.tasks
-              .slice()
-              .sort((a, b) => fromDawn(a.startMin ?? 0) - fromDawn(b.startMin ?? 0))
-              .map(slot)}
-          </div>
+          <PatternBody pattern={pattern} slot={slot} catOf={catOf} />
         </Popup>
       ) : null}
 
@@ -215,11 +310,7 @@ export default function Blueprints({ planner, now, Top, theme, onToggle }) {
             </>
           }
         >
-          {category.tasks.length ? (
-            <div className="sched">{category.tasks.map(slot)}</div>
-          ) : (
-            <div className="cat-empty">Nothing here yet. Add a task to this category from its page.</div>
-          )}
+          <CategoryBody category={category} slot={slot} />
         </Popup>
       ) : null}
 

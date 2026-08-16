@@ -86,6 +86,8 @@ export const makeEntry = ({
   unplanned = false,
   title = null,
   movedToJdn = null,
+  amount = null,   // tally / measure: how much, in the task's own unit
+  checked = null,  // checklist: which items are ticked
 }, now) => {
   if (!Object.values(STATUS).includes(status)) {
     throw new Error(`Unknown status: ${status}`);
@@ -102,6 +104,8 @@ export const makeEntry = ({
     unplanned,
     title,
     movedToJdn,
+    amount,
+    checked,
     loggedAtJdn: now?.jdn ?? dayJdn,
     loggedAtMin: now?.minutes ?? null,
   };
@@ -130,16 +134,29 @@ export const GAP_KINDS = { REST: "rest", TRAVEL: "travel" };
  * an instant on the day rather than occupying a stretch of it, so it neither
  * fills time nor creates a gap around itself.
  */
-export const isMoment = (task) => (task.duration ?? 0) === 0;
 
 /**
  * A continuous timeline, not a task list. Every minute is a task, a gap, or an
  * overlap. Gaps between tasks in different places are TRAVEL — you cannot clean
  * the house and then buy something at a store without moving between them.
  */
+/**
+ * A moment is an instant on the clock — waking, a dose, a phone call landing.
+ *
+ * A SPREAD task (drink water) also has no duration, but for the opposite
+ * reason: it is not at a point in time at all, it is smeared across the whole
+ * day. Both have `duration === 0`, so the kind has to be consulted, or the
+ * timeline would draw a hairline at dawn for something that has no place on
+ * the ruler.
+ */
+export const isSpreadTask = (task) => task?.kind === "tally";
+export const isMoment = (task) =>
+  (task?.duration ?? 0) === 0 && !isSpreadTask(task);
+
 export const timelineWithGaps = (tasks, { dayStartMin = 360, dayEndMin = 1440 } = {}) => {
   const placed = tasks
-    .filter((t) => t.startMin != null)
+    // A spread task belongs to the whole day, not to a point on the ruler.
+    .filter((t) => t.startMin != null && !isSpreadTask(t))
     .sort((a, b) => a.startMin - b.startMin);
 
   const out = [];
@@ -196,7 +213,8 @@ export const timelineWithGaps = (tasks, { dayStartMin = 360, dayEndMin = 1440 } 
 /** What just passed, what is happening now, what is next. */
 export const nowSlice = (tasks, nowMin, { pastCount = 2, futureCount = 3 } = {}) => {
   const placed = tasks
-    .filter((t) => t.startMin != null)
+    // A spread task belongs to the whole day, not to a point on the ruler.
+    .filter((t) => t.startMin != null && !isSpreadTask(t))
     .sort((a, b) => a.startMin - b.startMin);
   const current =
     placed.find((t) =>
@@ -208,3 +226,81 @@ export const nowSlice = (tasks, nowMin, { pastCount = 2, futureCount = 3 } = {})
   const upcoming = placed.filter((t) => t.startMin > nowMin).slice(0, futureCount);
   return { past, current, upcoming };
 };
+
+/**
+ * What a proposed task would collide with.
+ *
+ * The scheduler never silently refuses and never silently accepts. It reports
+ * exactly what is in the way, so the answer is visible rather than a disabled
+ * button with no reason. Overlapping is sometimes correct — a call during a
+ * commute is real — so this returns findings, not a verdict.
+ *
+ * Dawn-relative minutes throughout.
+ */
+export function conflictsFor({ startMin, duration = 0, place = null, ignoreId = null }, tasks) {
+  const endMin = startMin + duration;
+  const out = [];
+
+  for (const t of tasks) {
+    if (t.id === ignoreId) continue;
+    if (t.startMin == null || isSpreadTask(t)) continue;
+
+    const tEnd = t.startMin + (t.duration ?? 0);
+
+    // A moment inside the span is not a clash — an instant fits anywhere.
+    if (isMoment(t)) continue;
+
+    const overlaps = startMin < tEnd && t.startMin < endMin;
+    if (overlaps) {
+      const from = Math.max(startMin, t.startMin);
+      const to = Math.min(endMin, tEnd);
+      out.push({
+        kind: "overlap",
+        task: t,
+        minutes: Math.max(0, to - from),
+        startMin: from,
+        endMin: to,
+      });
+      continue;
+    }
+
+    // Back-to-back in different places needs travel time that does not exist.
+    if (place && t.place && place !== t.place) {
+      const gapAfter = t.startMin - endMin;
+      const gapBefore = startMin - tEnd;
+      const gap = gapAfter >= 0 ? gapAfter : gapBefore;
+      if (gap >= 0 && gap < 15) {
+        out.push({ kind: "tight", task: t, minutes: gap, from: t.place, to: place });
+      }
+    }
+  }
+
+  return out.sort((a, b) => b.minutes - a.minutes);
+}
+
+/** The nearest span of free time that fits, searched forward then backward. */
+export function nextFreeSlot({ startMin, duration }, tasks, { dayEndMin = 1440 } = {}) {
+  if (!duration) return null;
+  const busy = tasks
+    .filter((t) => t.startMin != null && !isSpreadTask(t) && !isMoment(t))
+    .map((t) => [t.startMin, t.startMin + (t.duration ?? 0)])
+    .sort((a, b) => a[0] - b[0]);
+
+  const free = [];
+  let cursor = 0;
+  for (const [s, e] of busy) {
+    if (s - cursor >= duration) free.push([cursor, s]);
+    cursor = Math.max(cursor, e);
+  }
+  if (dayEndMin - cursor >= duration) free.push([cursor, dayEndMin]);
+  if (!free.length) return null;
+
+  // Prefer the closest start to what was asked for.
+  let best = null;
+  for (const [s, e] of free) {
+    const candidate = Math.min(Math.max(startMin, s), e - duration);
+    const distance = Math.abs(candidate - startMin);
+    if (!best || distance < best.distance) best = { startMin: candidate, distance };
+  }
+  return best ? best.startMin : null;
+}

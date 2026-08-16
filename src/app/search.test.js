@@ -12,6 +12,7 @@ const NOW = { jdn: dayFromGc(2026, 8, 14).jdn };
 const CTX = {
   tasks: [{ id: "t1", title: "Lunch", rule: { kind: "everyday" }, startMin: 750, duration: 45 }],
   categories: [],
+  prototypeMode: true,
 };
 const kinds = (hits) => hits.map((h) => h.kind);
 const days = (hits) => hits.filter((h) => h.kind === "Day");
@@ -215,6 +216,12 @@ describe("prototypes are findable like anything else", () => {
     for (const q of ["lunch", "monday", "14"]) {
       expect(search(q, NOW, CTX).some((h) => h.kind === "Prototype")).toBe(false);
     }
+  });
+
+  it("hides them entirely when prototype mode is off", () => {
+    const off = { ...CTX, prototypeMode: false };
+    expect(search("prototype", NOW, off).some((h) => h.kind === "Prototype")).toBe(false);
+    expect(search("button", NOW, off).some((h) => h.kind === "Prototype")).toBe(false);
   });
 
   it("finds the plain pages too", () => {

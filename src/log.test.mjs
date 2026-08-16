@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   STATUS, canCompleteAt, makeEntry, statusOf, timelineWithGaps, nowSlice,
-  GAP_KINDS, parseTime, fmtTime, fmtDur, loggedLate, driftedFromPlan, __resetEntryIds, isMoment,
+  GAP_KINDS, parseTime, fmtTime, fmtDur, loggedLate, driftedFromPlan, __resetEntryIds,
+  isMoment, isSpreadTask, conflictsFor, nextFreeSlot,
 } from "./log.mjs";
 import { dayFromGc } from "./calendar.mjs";
 import { buildDefaults, DEFAULT_TASKS } from "./defaults.mjs";
@@ -153,11 +154,31 @@ describe("moments — tasks with no duration", () => {
     expect(isMoment(wake)).toBe(true);
   });
 
-  it("everything else still occupies time", () => {
-    for (const t of buildDefaults().filter((t) => t.key !== "wake")) {
+  it("everything with a place on the clock still occupies time", () => {
+    const onTheClock = buildDefaults().filter((t) => t.key !== "wake" && t.kind !== "tally");
+    for (const t of onTheClock) {
       expect(isMoment(t)).toBe(false);
       expect(t.duration).toBeGreaterThan(0);
     }
+  });
+
+  it("a spread task has no duration but is not a moment", () => {
+    const water = buildDefaults().find((t) => t.key === "water");
+    expect(water.duration).toBe(0);
+    // Same zero, opposite reason: it is everywhere, not at an instant.
+    expect(isMoment(water)).toBe(false);
+    expect(isSpreadTask(water)).toBe(true);
+  });
+
+  it("keeps spread tasks off the ruler entirely", () => {
+    const tl = timelineWithGaps(
+      [
+        { id: "w", title: "Water", startMin: 0, duration: 0, kind: "tally" },
+        { id: "b", title: "Breakfast", startMin: 60, duration: 30 },
+      ],
+      { dayStartMin: 0, dayEndMin: 1440 },
+    );
+    expect(tl.some((i) => i.task?.id === "w")).toBe(false);
   });
 
   it("is emitted as its own kind, with zero width", () => {
@@ -207,5 +228,66 @@ describe("moments — tasks with no duration", () => {
     expect(nowSlice(tasks, 360).current?.id).toBe("w");
     expect(nowSlice(tasks, 361).current).toBeNull();
     expect(nowSlice(tasks, 361).past.map((t) => t.id)).toEqual(["w"]);
+  });
+});
+
+describe("scheduling conflicts", () => {
+  const day = [
+    { id: "a", title: "Maths", startMin: 120, duration: 90, place: "School" },
+    { id: "b", title: "Lunch", startMin: 360, duration: 45, place: "Home" },
+    { id: "w", title: "Wake", startMin: 0, duration: 0 },
+    { id: "h", title: "Water", startMin: 0, duration: 0, kind: "tally" },
+  ];
+
+  it("finds nothing when the slot is free", () => {
+    expect(conflictsFor({ startMin: 600, duration: 30 }, day)).toEqual([]);
+  });
+
+  it("names what is in the way, and for how long", () => {
+    const c = conflictsFor({ startMin: 150, duration: 60 }, day);
+    expect(c).toHaveLength(1);
+    expect(c[0].kind).toBe("overlap");
+    expect(c[0].task.title).toBe("Maths");
+    expect(c[0].minutes).toBe(60); // 150–210 against 120–210
+  });
+
+  it("reports the worst clash first", () => {
+    const c = conflictsFor({ startMin: 180, duration: 240 }, day);
+    expect(c[0].minutes).toBeGreaterThanOrEqual(c[1].minutes);
+  });
+
+  it("does not treat a moment as a clash — an instant fits anywhere", () => {
+    expect(conflictsFor({ startMin: 0, duration: 60 }, day)).toEqual([]);
+  });
+
+  it("ignores spread tasks, which are not on the ruler", () => {
+    const c = conflictsFor({ startMin: 0, duration: 30 }, day);
+    expect(c.some((x) => x.task.id === "h")).toBe(false);
+  });
+
+  it("flags no time to travel between different places", () => {
+    const c = conflictsFor({ startMin: 215, duration: 30, place: "Office" }, day);
+    expect(c[0].kind).toBe("tight");
+    expect(c[0].from).toBe("School");
+    expect(c[0].to).toBe("Office");
+    expect(c[0].minutes).toBe(5);
+  });
+
+  it("says nothing about travel within the same place", () => {
+    expect(conflictsFor({ startMin: 215, duration: 30, place: "School" }, day)).toEqual([]);
+  });
+
+  it("can ignore the task being edited", () => {
+    expect(conflictsFor({ startMin: 120, duration: 90, ignoreId: "a" }, day)).toEqual([]);
+  });
+
+  it("suggests the nearest slot that actually fits", () => {
+    // 150 clashes with Maths (120–210); the nearest fit is right after it.
+    expect(nextFreeSlot({ startMin: 150, duration: 60 }, day)).toBe(210);
+  });
+
+  it("will look backwards if that is closer", () => {
+    const packed = [{ id: "x", startMin: 60, duration: 600 }];
+    expect(nextFreeSlot({ startMin: 100, duration: 30 }, packed)).toBe(30);
   });
 });

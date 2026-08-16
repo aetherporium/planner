@@ -150,9 +150,18 @@ export default function Settings({ planner, Top, theme, onToggle }) {
 
       <section className="prefs">
         <h2 className="section">Prototypes</h2>
-        <p className="hint" style={{ marginBottom: "var(--sp-3)" }}>
+
+        <Toggle
+          label="Prototype mode"
+          hint="Shows unfinished design work inside the app, marked in amber. Off by default so the app stays the app."
+          on={s.prototypeMode}
+          onChange={(v) => set("prototypeMode", v)}
+        />
+
+        <p className="hint" style={{ margin: "var(--sp-3) 0", maxWidth: "56ch" }}>
           Open design questions. Each shows the same thing built several ways — pick one
-          and the rest get thrown away. They are also in Go anywhere: search “prototype”.
+          and the rest get thrown away. With prototype mode on they also appear in
+          Go anywhere; search “prototype”.
         </p>
         <div className="rows">
           {PROTOTYPES.map((p) => (

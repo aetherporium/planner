@@ -181,9 +181,9 @@ export const search = (q, now, ctx = {}) => {
     if (name.toLowerCase().includes(s)) out.push({ kind: "Page", label: name, sub, href });
   }
 
-  // Open design questions — searchable like anything else, and "prototype"
-  // finds every one of them.
-  out.push(...prototypeHits(raw));
+  // Open design questions. Only when prototype mode is on — unfinished work
+  // should not turn up in the middle of ordinary use.
+  if (ctx.prototypeMode) out.push(...prototypeHits(raw));
 
   // de-duplicate by destination, keep first reason
   const seen = new Set();

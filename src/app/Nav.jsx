@@ -21,7 +21,7 @@ const EC_M_AM = [
 ];
 const DOW_AM_2 = ["እሑ", "ሰኞ", "ማክ", "ረቡ", "ሐሙ", "ዓር", "ቅዳ"];
 
-export default function Nav({ now, tasks, categories }) {
+export default function Nav({ now, tasks, categories, prototypeMode = false }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
@@ -31,8 +31,8 @@ export default function Nav({ now, tasks, categories }) {
   const [view, setView] = useState({ y: today.ec.y, m: today.ec.m });
 
   const hits = useMemo(
-    () => (q.trim() ? search(q, now, { tasks, categories }) : suggestions(now)),
-    [q, now, tasks, categories],
+    () => (q.trim() ? search(q, now, { tasks, categories, prototypeMode }) : suggestions(now)),
+    [q, now, tasks, categories, prototypeMode],
   );
 
   const days = useMemo(() => ecMonthDays(view.y, view.m), [view]);

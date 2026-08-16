@@ -79,6 +79,8 @@ export const DEFAULT_SETTINGS = {
   pastCount: 2,
   futureCount: 3,
   confirmDayChange: true,  // scrolling into a neighbour asks before switching
+  prototypeMode: false,    // show unfinished design work inside the app
+  zoom: 1,                 // timeline detail: 0.5 = whole day, 3 = minute-level
 };
 
 /**
@@ -116,6 +118,9 @@ const DEMO_TASKS = [
   { title: "Holiday meal", startMin: 13 * 60, duration: 150, rule: { kind: "holiday" }, place: "Home", cat: "Home" },
   { title: "Stretch", startMin: 6 * 60 + 5, duration: 0, rule: { kind: "everyday" }, place: "Home", cat: "Health" },
   { title: "Water plants", startMin: 18 * 60 + 30, duration: 15, rule: { kind: "dow", dow: 3 }, place: "Home", cat: "Home" },
+  { title: "Gym", startMin: 17 * 60 + 30, duration: 75, rule: { kind: "dow", dow: 1 }, place: "Gym", cat: "Health",
+    kind: "checklist",
+    items: ["Warm up 10 min", "Squat 3x8", "Bench 3x8", "Row 3x10", "Plank 3x1 min", "Stretch"] },
 ];
 
 let seq = 0;
@@ -222,6 +227,57 @@ export const usePlanner = () => {
 
   const findTask = useCallback((id) => allTasks.find((t) => t.id === id) ?? null, [allTasks]);
 
+  /**
+   * Record a measured amount. Unlike a status, this REPLACES rather than
+   * appends — "1400 ml" is a running total, not an event, so a day has one
+   * of them and re-recording corrects it.
+   */
+  const setAmount = useCallback(
+    (taskId, dayJdn, amount, now) => {
+      setEntries((es) => {
+        const rest = es.filter((e) => !(e.taskId === taskId && e.dayJdn === dayJdn));
+        const prev = es.find((e) => e.taskId === taskId && e.dayJdn === dayJdn);
+        const value = Math.max(0, Math.round(amount));
+        if (!value) return rest;
+        return [
+          ...rest,
+          makeEntry(
+            {
+              taskId,
+              dayJdn,
+              status: STATUS.DONE,
+              amount: value,
+              checked: prev?.checked ?? null,
+            },
+            now,
+          ),
+        ];
+      });
+    },
+    [setEntries],
+  );
+
+  /** Tick or untick one checklist item. */
+  const toggleItem = useCallback(
+    (taskId, dayJdn, item, now) => {
+      setEntries((es) => {
+        const prev = es.find((e) => e.taskId === taskId && e.dayJdn === dayJdn);
+        const had = prev?.checked ?? [];
+        const checked = had.includes(item) ? had.filter((i) => i !== item) : [...had, item];
+        const rest = es.filter((e) => !(e.taskId === taskId && e.dayJdn === dayJdn));
+        if (!checked.length) return rest;
+        return [
+          ...rest,
+          makeEntry(
+            { taskId, dayJdn, status: STATUS.DONE, checked, amount: prev?.amount ?? null },
+            now,
+          ),
+        ];
+      });
+    },
+    [setEntries],
+  );
+
   const setSetting = useCallback(
     (key, value) => setSettings((s0) => ({ ...s0, [key]: value })),
     [setSettings],
@@ -302,6 +358,8 @@ export const usePlanner = () => {
     entries,
     disabled,
     categories,
+    setAmount,
+    toggleItem,
     settings,
     setSetting,
     loadDemo,

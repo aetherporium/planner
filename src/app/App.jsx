@@ -11,10 +11,13 @@ import { useMemo, useState } from "react";
 import Icon from "./Icon.jsx";
 import Timeline from "./Timeline.jsx";
 import Mark, { Time } from "./Mark.jsx";
-import { t12, parseEth, isNight, fromDawn } from "./format.js";
+import { t12, parseEth, isNight, fromDawn, toClock } from "./format.js";
 import Nav from "./Nav.jsx";
 import DayHeader from "./DayHeader.jsx";
 import NowStrip from "./NowStrip.jsx";
+import Tally from "./Tally.jsx";
+import { isSpreadTask, conflictsFor, nextFreeSlot } from "../log.mjs";
+import { KIND } from "../kinds.mjs";
 import Popup from "./Popup.jsx";
 import Blueprints from "./Blueprints.jsx";
 import Settings from "./Settings.jsx";
@@ -75,12 +78,35 @@ function DayPage({ jdn, planner, now, theme, onToggle }) {
   const day = dayFromJdn(jdn);
   const isToday = jdn === now.jdn;
   const tasks = planner.tasksFor(jdn);
+  // Spread tasks have no place on the ruler — they belong to the whole day.
+  const spread = tasks.filter(isSpreadTask);
 
   return (
     <div className="page day-page">
       <Top back={isToday ? null : { href: "#/", label: "Today" }} theme={theme} onToggle={onToggle} />
 
       <DayHeader day={day} isToday={isToday} now={now} jdn={jdn} />
+
+      {spread.length ? (
+        <div className="spread-band">
+          {spread.map((t) => (
+            <Tally
+              key={t.id}
+              task={t}
+              entry={planner.statusFor(t.id, jdn)}
+              nowFromDawn={fromDawn(now.minutes)}
+              compact={!isToday}
+              onAdd={(d) =>
+                planner.setAmount(
+                  t.id, jdn,
+                  (planner.statusFor(t.id, jdn)?.amount ?? 0) + d, now,
+                )
+              }
+              onSet={(v) => planner.setAmount(t.id, jdn, v, now)}
+            />
+          ))}
+        </div>
+      ) : null}
 
       {tasks.length === 0 ? (
         <div className="empty-day">
@@ -104,6 +130,8 @@ function DayPage({ jdn, planner, now, theme, onToggle }) {
             nowMin={now.minutes}
             timelineFor={planner.timelineFor}
             statusFor={planner.statusFor}
+            zoom={planner.settings.zoom}
+            onZoom={(z) => planner.setSetting("zoom", z)}
           />
           {isToday ? (
             <NowStrip
@@ -257,6 +285,45 @@ function TaskPage({ id, jdn, planner, now, theme, onToggle }) {
         {task.titleAm ? <div className="sub am" style={{ marginTop: 2 }}>{task.titleAm}</div> : null}
         {task.description ? <p className="task-desc">{task.description}</p> : null}
 
+        {/* Measured tasks are logged by amount, not by a done button. */}
+        {task.kind === KIND.TALLY || task.kind === KIND.MEASURE ? (
+          <div style={{ marginTop: "var(--sp-4)" }}>
+            <Tally
+              task={task}
+              entry={entry}
+              nowFromDawn={fromDawn(now.minutes)}
+              onAdd={(d) => planner.setAmount(task.id, dayJdn, (entry?.amount ?? 0) + d, now)}
+              onSet={(v) => planner.setAmount(task.id, dayJdn, v, now)}
+            />
+          </div>
+        ) : null}
+
+        {/* A checklist is the task; ticking items is how it gets done. */}
+        {task.kind === KIND.CHECKLIST && task.items?.length ? (
+          <div className="checklist">
+            <div className="cl-head">
+              <span>{(entry?.checked ?? []).length} of {task.items.length}</span>
+              <span className="cl-bar">
+                <span style={{ width: `${((entry?.checked ?? []).length / task.items.length) * 100}%` }} />
+              </span>
+            </div>
+            {task.items.map((item) => {
+              const done = (entry?.checked ?? []).includes(item);
+              return (
+                <button
+                  key={item}
+                  type="button"
+                  className={`cl-item${done ? " on" : ""}`}
+                  onClick={() => planner.toggleItem(task.id, dayJdn, item, now)}
+                >
+                  <span className="cl-box">{done ? <Icon name="check" size={12} /> : null}</span>
+                  {item}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
         <div className="split" style={{ marginTop: "var(--sp-5)" }}>
           <div className="kv">
             <span className="k">Planned</span>
@@ -396,6 +463,27 @@ function AddPage({ jdn, planner, now, theme, onToggle }) {
   const compound = /\s(&|and|\+)\s/i.test(title);
   const startMin = parseEth(start, night);
 
+  /**
+   * What this would collide with, shown while you type rather than after you
+   * submit. Overlapping is sometimes right, so this never blocks — it shows
+   * you the clash and offers the nearest slot that fits.
+   */
+  const dayTasks = planner.tasksFor(dayJdn);
+  const clashes =
+    startMin == null
+      ? []
+      : conflictsFor(
+          { startMin: fromDawn(startMin), duration: Number(dur) || 0, place: place.trim() || null },
+          dayTasks.map((t) => ({ ...t, startMin: fromDawn(t.startMin ?? 0) })),
+        );
+  const suggestion =
+    clashes.length && Number(dur)
+      ? nextFreeSlot(
+          { startMin: fromDawn(startMin), duration: Number(dur) },
+          dayTasks.map((t) => ({ ...t, startMin: fromDawn(t.startMin ?? 0) })),
+        )
+      : null;
+
   // Date and frequency are REQUIREMENTS, not options. A task with no date is
   // not scheduled, and a task with no frequency does not say whether it is a
   // one-off or a habit — the blueprint cannot be derived without it.
@@ -501,6 +589,62 @@ function AddPage({ jdn, planner, now, theme, onToggle }) {
           ) : null}
         </div>
 
+        {clashes.length ? (
+          <div className="clash">
+            <div className="clash-head">
+              <Icon name="warn" size={15} />
+              <strong>
+                {clashes.length === 1 ? "This overlaps something" : `This overlaps ${clashes.length} things`}
+              </strong>
+            </div>
+
+            {/* the collision, drawn rather than described */}
+            <div className="clash-map">
+              {clashes.slice(0, 3).map((c, i) => {
+                const cs = fromDawn(c.task.startMin);
+                const span = Math.max(c.task.duration ?? 0, 1);
+                const mine = fromDawn(startMin);
+                const from = Math.min(cs, mine);
+                const to = Math.max(cs + span, mine + (Number(dur) || 0));
+                const w = Math.max(1, to - from);
+                const pc = (v) => `${((v - from) / w) * 100}%`;
+                return (
+                  <div className="clash-row" key={i}>
+                    <span className="clash-lane">
+                      <span className="clash-them"
+                        style={{ left: pc(cs), width: `${(span / w) * 100}%` }}>
+                        {c.task.title}
+                      </span>
+                      <span className="clash-mine"
+                        style={{ left: pc(mine), width: `${((Number(dur) || 0) / w) * 100}%` }}>
+                        {title.trim() || "New"}
+                      </span>
+                    </span>
+                    <span className="clash-n">
+                      {c.kind === "tight"
+                        ? `${c.minutes} min to get from ${c.from} to ${c.to}`
+                        : `${fmtDur(c.minutes)} on top of ${c.task.title}`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="clash-foot">
+              You can still add it — sometimes two things really do overlap.
+              {suggestion != null ? (
+                <>
+                  {" "}
+                  <button type="button" className="linkline"
+                    onClick={() => { setStart(t12(toClock(suggestion))); setNight(isNight(toClock(suggestion))); }}>
+                    Move to {t12(toClock(suggestion))} instead
+                  </button>
+                </>
+              ) : null}
+            </p>
+          </div>
+        ) : null}
+
         <details className="disclosure">
           <summary><Icon name="chevRight" size={13} className="chev" /> Place and category</summary>
           <div className="field">
@@ -580,7 +724,13 @@ export default function App() {
   return (
     <div className="shell">
       {page}
-      <Nav now={now} tasks={planner.allTasks} categories={planner.categories} />
+      {planner.settings.prototypeMode ? <div className="proto-live" aria-hidden="true" /> : null}
+      <Nav
+        now={now}
+        tasks={planner.allTasks}
+        categories={planner.categories}
+        prototypeMode={planner.settings.prototypeMode}
+      />
     </div>
   );
 }

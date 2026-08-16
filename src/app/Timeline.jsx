@@ -21,22 +21,46 @@ import { fmtDur, GAP_KINDS, STATUS, isMoment } from "../log.mjs";
 import { DOW, GC_MONTHS, dayFromJdn } from "../calendar.mjs";
 
 const HOURS = Array.from({ length: 25 }, (_, i) => i);
-const PX = 1.15;
-const DAY_H = 1440 * PX;
+const BASE_PX = 1.15;
 const DIVIDER = 46;
 
-function DaySection({ jdn, timeline, statusFor, nowFromDawn, isToday }) {
+/**
+ * Zoom changes how many pixels a minute is worth, and with it how much detail
+ * the ruler admits. At the far end an hour line is enough; up close every
+ * quarter hour gets one, because that is the resolution you are working at.
+ */
+export const ZOOMS = [
+  { id: 0.45, name: "Day", step: 180 },
+  { id: 0.7, name: "Wide", step: 120 },
+  { id: 1, name: "Normal", step: 60 },
+  { id: 1.7, name: "Close", step: 30 },
+  { id: 3, name: "Detail", step: 15 },
+];
+
+const zoomAt = (z) => ZOOMS.reduce((a, b) => (Math.abs(b.id - z) < Math.abs(a.id - z) ? b : a));
+
+function DaySection({ jdn, timeline, statusFor, nowFromDawn, isToday, PX, step }) {
+  const lines = [];
+  for (let m = 0; m <= 1440; m += step) lines.push(m);
+
   return (
     <>
-      {HOURS.map((h) => (
-        <div key={h} className={`tl-hour${h % 6 === 0 ? " major" : ""}`} style={{ top: h * 60 * PX }}>
-          <div className="lab">
-            <span>{rulerHour(h * 60)}</span>
-            <Mark night={h >= 12 && h < 24} size={5} />
+      {lines.map((m) => {
+        const onHour = m % 60 === 0;
+        return (
+          <div
+            key={m}
+            className={`tl-hour${m % 360 === 0 ? " major" : ""}${onHour ? "" : " sub"}`}
+            style={{ top: m * PX }}
+          >
+            <div className="lab">
+              <span>{onHour ? rulerHour(m) : `:${String(m % 60).padStart(2, "0")}`}</span>
+              {onHour ? <Mark night={m >= 720 && m < 1440} size={5} /> : null}
+            </div>
+            <div className="rule" />
           </div>
-          <div className="rule" />
-        </div>
-      ))}
+        );
+      })}
 
       {/* Water: a level, stepped to the hour. No motion. */}
       {isToday ? (
@@ -152,23 +176,45 @@ function Divider({ jdn, dir }) {
   );
 }
 
-export default function Timeline({ jdn, nowMin, nowJdn, timelineFor, statusFor, height = 520 }) {
+export default function Timeline({
+  jdn, nowMin, nowJdn, timelineFor, statusFor, height = 520,
+  zoom = 1, onZoom,
+}) {
   const scrollRef = useRef(null);
   const nowFromDawn = fromDawn(nowMin);
   // Water steps with the hour — the finest unit this ruler shows.
   const watermark = Math.floor(nowFromDawn / 60) * 60;
 
+  const z = zoomAt(zoom);
+  const PX = BASE_PX * z.id;
+  const DAY_H = 1440 * PX;
+
   const days = [jdn - 1, jdn, jdn + 1];
   const offsetOf = (i) => i * (DAY_H + DIVIDER);
   const middleTop = offsetOf(1);
 
-  // Land on the current day, at the current hour, without animating on arrival.
+  const today = timelineFor(jdn);
+
+  /**
+   * Land on what is happening, not on an arbitrary hour.
+   *
+   * Opening today should put you at the task in progress — or, if nothing is,
+   * the last one that finished, because that is the thing you were doing.
+   * Falling back to the raw clock position would often show empty ruler.
+   */
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const within = jdn === nowJdn ? nowFromDawn * PX - height * 0.36 : 60 * PX;
-    el.scrollTop = middleTop + Math.max(0, within);
-  }, [jdn]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    let anchor = 60;
+    if (jdn === nowJdn) {
+      const blocks = today.filter((i) => i.kind === "task" || i.kind === "moment");
+      const current = blocks.find((i) => i.startMin <= nowFromDawn && nowFromDawn < i.endMin);
+      const previous = [...blocks].reverse().find((i) => i.endMin <= nowFromDawn);
+      anchor = (current ?? previous)?.startMin ?? nowFromDawn;
+    }
+    el.scrollTop = middleTop + Math.max(0, anchor * PX - height * 0.3);
+  }, [jdn, zoom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Crossing into a neighbour ARMS the change; it does not make it.
@@ -198,10 +244,32 @@ export default function Timeline({ jdn, nowMin, nowJdn, timelineFor, statusFor, 
       el.removeEventListener("scroll", onScroll);
       cancelAnimationFrame(frame);
     };
-  }, [jdn, middleTop]);
+  }, [jdn, middleTop, DAY_H]);
 
   return (
     <div className="tl-wrap">
+      {onZoom ? (
+        <div className="tl-zoom">
+          <button
+            type="button"
+            aria-label="Less detail"
+            disabled={z.id === ZOOMS[0].id}
+            onClick={() => onZoom(ZOOMS[Math.max(0, ZOOMS.indexOf(z) - 1)].id)}
+          >
+            <Icon name="minus" size={14} />
+          </button>
+          <span className="tl-zoom-l">{z.name}</span>
+          <button
+            type="button"
+            aria-label="More detail"
+            disabled={z.id === ZOOMS[ZOOMS.length - 1].id}
+            onClick={() => onZoom(ZOOMS[Math.min(ZOOMS.length - 1, ZOOMS.indexOf(z) + 1)].id)}
+          >
+            <Icon name="plus" size={14} />
+          </button>
+        </div>
+      ) : null}
+
       <div className="tl-scroll" style={{ height }} ref={scrollRef}>
         <div className="tl-track" style={{ height: days.length * DAY_H + (days.length - 1) * DIVIDER }}>
           {days.map((d, i) => (
@@ -209,10 +277,12 @@ export default function Timeline({ jdn, nowMin, nowJdn, timelineFor, statusFor, 
               style={{ top: offsetOf(i), height: DAY_H }}>
               <DaySection
                 jdn={d}
-                timeline={timelineFor(d)}
+                timeline={d === jdn ? today : timelineFor(d)}
                 statusFor={statusFor}
                 nowFromDawn={watermark}
                 isToday={d === nowJdn}
+                PX={PX}
+                step={z.step}
               />
             </div>
           ))}

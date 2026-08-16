@@ -12,6 +12,23 @@
 
 export const DEFAULT_TASKS = [
   {
+    // Not an event at a time — a target you fill across the whole day. It is a
+    // default because a body needs it as surely as it needs sleep, and because
+    // it is the clearest case of a task the clock alone cannot express.
+    key: "water",
+    title: "Drink water",
+    titleAm: "ውሃ መጠጣት",
+    rule: { kind: "everyday" },
+    startMin: 6 * 60,
+    duration: 0,
+    kind: "tally",
+    unit: "ml",
+    target: 2500,
+    step: 250,
+    place: null,
+    isDefault: true,
+  },
+  {
     key: "wake",
     title: "Wake",
     titleAm: "መነሳት",
@@ -55,6 +72,9 @@ export const DEFAULT_TASKS = [
   },
   {
     key: "sleep",
+    kind: "measure",
+    unit: "hr",
+    target: 8,
     title: "Sleep",
     titleAm: "እንቅልፍ",
     rule: { kind: "everyday" },
