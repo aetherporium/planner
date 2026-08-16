@@ -7,7 +7,7 @@
  * afternoon are told apart by a mark, never by the letters am/pm.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Icon from "./Icon.jsx";
 import Timeline from "./Timeline.jsx";
 import Mark, { Time } from "./Mark.jsx";
@@ -15,6 +15,7 @@ import { t12, parseEth, isNight, fromDawn, toClock } from "./format.js";
 import Nav from "./Nav.jsx";
 import DayHeader from "./DayHeader.jsx";
 import NowStrip from "./NowStrip.jsx";
+import MiniCalendar from "./MiniCalendar.jsx";
 import Tally from "./Tally.jsx";
 import { isSpreadTask, conflictsFor, nextFreeSlot } from "../log.mjs";
 import { KIND } from "../kinds.mjs";
@@ -48,7 +49,15 @@ const monthHref = (y, m) => `#/calendar/${y}-${m}`;
 
 /* ── Top bar: back on the left, theme on the right. Nothing else. ─────── */
 
-function Top({ back, theme, onToggle }) {
+/**
+ * The bar every page carries.
+ *
+ * Adding a task lives here, as an icon with no label — prototype variant B
+ * settled the weight question, and putting it in the chrome means it is in
+ * the same place on every page instead of only where someone thought to put
+ * it. Settings likewise: reachable from anywhere, never buried.
+ */
+function Top({ back, theme, onToggle, addHref = "#/add", hideAdd }) {
   return (
     <div className="top">
       {back ? (
@@ -59,15 +68,26 @@ function Top({ back, theme, onToggle }) {
       ) : (
         <span />
       )}
-      <button
-        type="button"
-        className="top-theme"
-        onClick={onToggle}
-        aria-label={theme === "dark" ? "Switch to light" : "Switch to dark"}
-        title={theme === "dark" ? "Switch to light" : "Switch to dark"}
-      >
-        <Icon name={theme === "dark" ? "sun" : "moon"} size={16} />
-      </button>
+
+      <div className="top-acts">
+        {hideAdd ? null : (
+          <a className="top-btn add" href={addHref} aria-label="New task" title="New task">
+            <Icon name="plus" size={17} />
+          </a>
+        )}
+        <a className="top-btn" href="#/settings" aria-label="Settings" title="Settings">
+          <Icon name="settings" size={16} />
+        </a>
+        <button
+          type="button"
+          className="top-btn"
+          onClick={onToggle}
+          aria-label={theme === "dark" ? "Switch to light" : "Switch to dark"}
+          title={theme === "dark" ? "Switch to light" : "Switch to dark"}
+        >
+          <Icon name={theme === "dark" ? "sun" : "moon"} size={16} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -78,34 +98,51 @@ function DayPage({ jdn, planner, now, theme, onToggle }) {
   const day = dayFromJdn(jdn);
   const isToday = jdn === now.jdn;
   const tasks = planner.tasksFor(jdn);
-  // Spread tasks have no place on the ruler — they belong to the whole day.
-  const spread = tasks.filter(isSpreadTask);
+
+  /**
+   * The header names whichever day the timeline is actually showing, so
+   * scrolling into tomorrow renames the heading even before the URL changes.
+   */
+  const [shownJdn, setShownJdn] = useState(jdn);
+  useEffect(() => setShownJdn(jdn), [jdn]);
+  const shown = dayFromJdn(shownJdn);
+  const [calOpen, setCalOpen] = useState(false);
 
   return (
     <div className="page day-page">
-      <Top back={isToday ? null : { href: "#/", label: "Today" }} theme={theme} onToggle={onToggle} />
+      <Top back={isToday ? null : { href: "#/", label: "Today" }} theme={theme} onToggle={onToggle}
+        addHref={`#/day/${jdn}/add`} />
 
-      <DayHeader day={day} isToday={isToday} now={now} jdn={jdn} />
+      {/* The clock keeps its own corner; the header sits beside it with the
+          strip of recent and coming tasks. */}
+      <div className="day-top">
+        <DayHeader
+          day={shown}
+          isToday={shownJdn === now.jdn}
+          now={now}
+          jdn={shownJdn}
+          onOpenCalendar={() => setCalOpen(true)}
+        />
+        {isToday ? (
+          <NowStrip
+            tasks={tasks}
+            nowMin={now.minutes}
+            jdn={jdn}
+            statusFor={planner.statusFor}
+            pastCount={planner.settings.pastCount}
+            futureCount={planner.settings.futureCount}
+          />
+        ) : null}
+      </div>
 
-      {spread.length ? (
-        <div className="spread-band">
-          {spread.map((t) => (
-            <Tally
-              key={t.id}
-              task={t}
-              entry={planner.statusFor(t.id, jdn)}
-              nowFromDawn={fromDawn(now.minutes)}
-              compact={!isToday}
-              onAdd={(d) =>
-                planner.setAmount(
-                  t.id, jdn,
-                  (planner.statusFor(t.id, jdn)?.amount ?? 0) + d, now,
-                )
-              }
-              onSet={(v) => planner.setAmount(t.id, jdn, v, now)}
-            />
-          ))}
-        </div>
+      {calOpen ? (
+        <Popup size="wide" title="Pick a day" onClose={() => setCalOpen(false)}>
+          <MiniCalendar
+            now={now}
+            focus={shown}
+            onPick={(j) => { setCalOpen(false); window.location.hash = `#/day/${j}`; }}
+          />
+        </Popup>
       ) : null}
 
       {tasks.length === 0 ? (
@@ -120,8 +157,6 @@ function DayPage({ jdn, planner, now, theme, onToggle }) {
           </div>
         </div>
       ) : (
-        /* The strip sits BESIDE the day, not above it: the timeline answers
-           "what shape is this day", the strip answers "what now". */
         <div className="day-split">
           <Timeline
             key={jdn}
@@ -132,17 +167,11 @@ function DayPage({ jdn, planner, now, theme, onToggle }) {
             statusFor={planner.statusFor}
             zoom={planner.settings.zoom}
             onZoom={(z) => planner.setSetting("zoom", z)}
+            onVisibleDay={setShownJdn}
+            onSip={(t, d) =>
+              planner.setAmount(t.id, jdn, (planner.statusFor(t.id, jdn)?.amount ?? 0) + d, now)
+            }
           />
-          {isToday ? (
-            <NowStrip
-              tasks={tasks}
-              nowMin={now.minutes}
-              jdn={jdn}
-              statusFor={planner.statusFor}
-              pastCount={planner.settings.pastCount}
-              futureCount={planner.settings.futureCount}
-            />
-          ) : null}
         </div>
       )}
     </div>
@@ -513,7 +542,7 @@ function AddPage({ jdn, planner, now, theme, onToggle }) {
   return (
     <div className="page">
       <Top back={{ href: `#/day/${jdn}`, label: jdn === now.jdn ? "Today" : gcShort(day) }}
-        theme={theme} onToggle={onToggle} />
+        theme={theme} onToggle={onToggle} hideAdd />
 
       <form className="glass panel" onSubmit={submit}>
         <h1 className="title" style={{ marginBottom: "var(--sp-5)" }}>Plan something</h1>
@@ -708,6 +737,9 @@ export default function App() {
       break;
     case "blueprints":
       page = <Blueprints Top={Top} {...common} />;
+      break;
+    case "add":
+      page = <AddPage jdn={now.jdn} {...common} />;
       break;
     case "settings":
       page = <Settings Top={Top} {...common} />;

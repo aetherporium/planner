@@ -38,6 +38,18 @@ export const PROTOTYPES = [
   },
 ];
 
+PROTOTYPES.push({
+  id: "calview",
+  title: "Calendar shape",
+  question: "Should the calendar be a month grid, a list of days, or both?",
+  variants: [
+    ["A", "Grid — the month as a shape"],
+    ["B", "Day list — a row per day, preview beside"],
+    ["C", "Both — a toggle between them"],
+  ],
+  terms: ["calendar", "month", "grid", "list", "day", "view", "preview"],
+});
+
 export const findPrototype = (id) => PROTOTYPES.find((p) => p.id === id) ?? null;
 
 /** Every prototype variant as a searchable destination. */

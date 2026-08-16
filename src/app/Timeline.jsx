@@ -25,23 +25,50 @@ const BASE_PX = 1.15;
 const DIVIDER = 46;
 
 /**
- * Zoom changes how many pixels a minute is worth, and with it how much detail
- * the ruler admits. At the far end an hour line is enough; up close every
- * quarter hour gets one, because that is the resolution you are working at.
+ * Zoom is continuous, not a set of named stops. You keep going in until the
+ * ruler is as fine as you need; the labels follow the scale rather than the
+ * scale following the labels.
+ *
+ * At the far end a line every 30 SECONDS is legible, which is the real limit
+ * of "more detail" for a day planner.
  */
-export const ZOOMS = [
-  { id: 0.45, name: "Day", step: 180 },
-  { id: 0.7, name: "Wide", step: 120 },
-  { id: 1, name: "Normal", step: 60 },
-  { id: 1.7, name: "Close", step: 30 },
-  { id: 3, name: "Detail", step: 15 },
-];
+export const ZOOM_MIN = 0.4;
+export const ZOOM_MAX = 120;
+const ZOOM_FACTOR = 1.6;
 
-const zoomAt = (z) => ZOOMS.reduce((a, b) => (Math.abs(b.id - z) < Math.abs(a.id - z) ? b : a));
+/** The finest gridline that still leaves ~46px between lines at this scale. */
+function gridFor(px) {
+  const steps = [0.5, 1, 2, 5, 10, 15, 30, 60, 180];
+  for (const m of steps) if (m * px >= 46) return m;
+  return 180;
+}
 
-function DaySection({ jdn, timeline, statusFor, nowFromDawn, isToday, PX, step }) {
+/** "1:30" · "1:30:30" — a label that says exactly which instant it marks. */
+function lineLabel(m) {
+  if (m % 60 === 0) return rulerHour(m);
+  const mm = Math.floor(m % 60);
+  const ss = Math.round((m % 1) * 60);
+  return ss ? `:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`
+            : `:${String(mm).padStart(2, "0")}`;
+}
+
+const zoomName = (step) => {
+  if (step >= 180) return "3 hr";
+  if (step >= 60) return `${step / 60} hr`;
+  if (step >= 1) return `${step} min`;
+  return `${Math.round(step * 60)} sec`;
+};
+
+function DaySection({ jdn, timeline, statusFor, nowFromDawn, isToday, PX, step, view, onSip }) {
+  /**
+   * Only draw the lines that are actually on screen. At 30-second resolution
+   * a full day is 2880 lines per day and three days would be 8640 nodes —
+   * enough to make scrolling stutter.
+   */
+  const from = Math.max(0, Math.floor(view.from / step) * step);
+  const to = Math.min(1440, Math.ceil(view.to / step) * step);
   const lines = [];
-  for (let m = 0; m <= 1440; m += step) lines.push(m);
+  for (let m = from; m <= to; m += step) lines.push(Number(m.toFixed(4)));
 
   return (
     <>
@@ -54,7 +81,7 @@ function DaySection({ jdn, timeline, statusFor, nowFromDawn, isToday, PX, step }
             style={{ top: m * PX }}
           >
             <div className="lab">
-              <span>{onHour ? rulerHour(m) : `:${String(m % 60).padStart(2, "0")}`}</span>
+              <span>{lineLabel(m)}</span>
               {onHour ? <Mark night={m >= 720 && m < 1440} size={5} /> : null}
             </div>
             <div className="rule" />
@@ -73,6 +100,37 @@ function DaySection({ jdn, timeline, statusFor, nowFromDawn, isToday, PX, step }
       <div className="tl-body">
         {timeline.map((item, i) => {
           const top = item.startMin * PX;
+
+          /**
+           * A planned sip. Small, on the ruler where it belongs, and doable
+           * in one tap from here — the point is to do it as planned, not to
+           * remember a total at the end of the day.
+           */
+          if (item.kind === "slot") {
+            const t = item.task;
+            const entry = statusFor?.(t.id, jdn);
+            const poured = Math.floor((entry?.amount ?? 0) / (t.slotAmount ?? 250));
+            const done = item.index < poured;
+            const due = isToday && item.startMin <= nowFromDawn && !done;
+            return (
+              <button
+                key={`${t.id}-${item.index}`}
+                type="button"
+                className={`sip${done ? " done" : ""}${due ? " due" : ""}`}
+                style={{ top }}
+                title={`${t.title} — ${t.slotAmount} ${t.unit}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onSip?.(t, done ? -(t.slotAmount ?? 250) : (t.slotAmount ?? 250));
+                }}
+              >
+                <span className="sip-dot">
+                  <Icon name={done ? "check" : "water"} size={10} />
+                </span>
+                <span className="sip-n">{t.slotAmount} {t.unit}</span>
+              </button>
+            );
+          }
 
           if (item.kind === "moment") {
             const t = item.task;
@@ -178,15 +236,16 @@ function Divider({ jdn, dir }) {
 
 export default function Timeline({
   jdn, nowMin, nowJdn, timelineFor, statusFor, height = 520,
-  zoom = 1, onZoom,
+  zoom = 1, onZoom, onVisibleDay, onSip,
 }) {
   const scrollRef = useRef(null);
   const nowFromDawn = fromDawn(nowMin);
   // Water steps with the hour — the finest unit this ruler shows.
   const watermark = Math.floor(nowFromDawn / 60) * 60;
 
-  const z = zoomAt(zoom);
-  const PX = BASE_PX * z.id;
+  const scale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
+  const PX = BASE_PX * scale;
+  const step = gridFor(PX);
   const DAY_H = 1440 * PX;
 
   const days = [jdn - 1, jdn, jdn + 1];
@@ -217,34 +276,51 @@ export default function Timeline({
   }, [jdn, zoom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
-   * Crossing into a neighbour ARMS the change; it does not make it.
+   * Scrolling between days is FREE. Yesterday, today and tomorrow are one
+   * strip of time and you can move through all of it — an earlier version
+   * made you click a button to cross a boundary, which turned a scroll into
+   * a decision for no reason.
    *
-   * Scrolling is how you look around, so it must not silently move you to
-   * another day. Once you are well inside a neighbour a confirm bar appears
-   * and you say so. Idly scrolling past the edge and back leaves you where
-   * you were.
+   * What the scroll position changes is the LABEL: whichever day fills most
+   * of the viewport is the one the header names. The URL only changes when
+   * you actually settle on another day, so back still works.
    */
-  const [armed, setArmed] = useState(null);
+  const [visible, setVisible] = useState(jdn);
+  const [view, setView] = useState({ from: 0, to: 1440 });
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return undefined;
     let frame = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const rel = el.scrollTop - middleTop;
-        if (rel > DAY_H * 0.75) setArmed(jdn + 1);
-        else if (rel < -DAY_H * 0.25) setArmed(jdn - 1);
-        else setArmed(null);
+
+    const measure = () => {
+      const mid = el.scrollTop + el.clientHeight / 2;
+      const i = Math.min(days.length - 1, Math.max(0, Math.floor(mid / (DAY_H + DIVIDER))));
+      setVisible(days[i]);
+
+      // Which slice of the day is on screen, so the ruler only draws that.
+      const top = el.scrollTop - offsetOf(i);
+      setView({
+        from: Math.max(0, top / PX - 120),
+        to: Math.min(1440, (top + el.clientHeight) / PX + 120),
       });
     };
+
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    };
+
+    measure();
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       el.removeEventListener("scroll", onScroll);
       cancelAnimationFrame(frame);
     };
-  }, [jdn, middleTop, DAY_H]);
+  }, [jdn, DAY_H, PX, days.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tell the page which day is being looked at, so its header can follow.
+  useEffect(() => { onVisibleDay?.(visible); }, [visible, onVisibleDay]);
 
   return (
     <div className="tl-wrap">
@@ -253,17 +329,17 @@ export default function Timeline({
           <button
             type="button"
             aria-label="Less detail"
-            disabled={z.id === ZOOMS[0].id}
-            onClick={() => onZoom(ZOOMS[Math.max(0, ZOOMS.indexOf(z) - 1)].id)}
+            disabled={scale <= ZOOM_MIN * 1.001}
+            onClick={() => onZoom(Math.max(ZOOM_MIN, scale / ZOOM_FACTOR))}
           >
             <Icon name="minus" size={14} />
           </button>
-          <span className="tl-zoom-l">{z.name}</span>
+          <span className="tl-zoom-l" title="Gridline spacing">{zoomName(step)}</span>
           <button
             type="button"
             aria-label="More detail"
-            disabled={z.id === ZOOMS[ZOOMS.length - 1].id}
-            onClick={() => onZoom(ZOOMS[Math.min(ZOOMS.length - 1, ZOOMS.indexOf(z) + 1)].id)}
+            disabled={scale >= ZOOM_MAX * 0.999}
+            onClick={() => onZoom(Math.min(ZOOM_MAX, scale * ZOOM_FACTOR))}
           >
             <Icon name="plus" size={14} />
           </button>
@@ -282,7 +358,9 @@ export default function Timeline({
                 nowFromDawn={watermark}
                 isToday={d === nowJdn}
                 PX={PX}
-                step={z.step}
+                step={step}
+                view={view}
+                onSip={onSip}
               />
             </div>
           ))}
@@ -296,13 +374,6 @@ export default function Timeline({
       <div className="tl-fade top" />
       <div className="tl-fade bot" />
 
-      {armed ? (
-        <a className="tl-jump" href={`#/day/${armed}`}>
-          <Icon name={armed > jdn ? "arrowDown" : "arrowUp"} size={14} />
-          Go to {DOW[dayFromJdn(armed).dow]} {dayFromJdn(armed).gc.d}{" "}
-          {GC_MONTHS[dayFromJdn(armed).gc.m - 1].slice(0, 3)}
-        </a>
-      ) : null}
     </div>
   );
 }

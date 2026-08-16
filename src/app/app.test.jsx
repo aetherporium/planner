@@ -51,7 +51,8 @@ describe("router", () => {
 describe("pages render", () => {
   it("today is the default landing page", () => {
     at("#/");
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Today");
+    // The day name is a control — it opens a calendar — so it is a button.
+    expect(document.querySelector(".dh-title").textContent).toMatch(/Today/);
   });
 
   it("the day is the core page — no breadcrumb trail above it", () => {
@@ -74,7 +75,7 @@ describe("pages render", () => {
     const { container } = at("#/blueprints");
     // Primary affordance is adding a task.
     const add = container.querySelector('a[href$="/add"]');
-    expect(add.textContent).toMatch(/New task/);
+    expect(add.getAttribute("aria-label")).toBe("New task");
     // The description card is gone.
     expect(container.textContent).not.toMatch(/what you do unfailingly/i);
   });
@@ -222,7 +223,7 @@ describe("product rules hold in the UI", () => {
   it("renders the clock in analog and digital form at once", () => {
     const { container } = at("#/");
     expect(container.querySelector("svg.face")).toBeTruthy();
-    expect(container.querySelector(".dh-read").textContent).toMatch(/^\d{1,2}:\d{2}:\d{2}$/);
+    expect(container.querySelector(".face-digits textPath").textContent).toMatch(/^\d{1,2}:\d{2}$/);
   });
 
   it("has no floating clock pill and no quick-add on the day", () => {
@@ -239,7 +240,7 @@ describe("product rules hold in the UI", () => {
 
   it("puts the theme control on the top right, with no label", () => {
     const { container } = at("#/");
-    const t = container.querySelector(".top-theme");
+    const t = container.querySelector(".top-btn:last-child");
     expect(t).toBeTruthy();
     expect(t.textContent.trim()).toBe("");
     expect(t.querySelector("svg")).toBeTruthy();
@@ -248,7 +249,7 @@ describe("product rules hold in the UI", () => {
   it("carries the same theme control on every page", () => {
     for (const hash of ["#/", "#/calendar", "#/blueprints", `#/day/${readNow().jdn}/add`]) {
       const { container } = at(hash);
-      expect(container.querySelector(".top-theme")).toBeTruthy();
+      expect(container.querySelector(".top-btn:last-child")).toBeTruthy();
       cleanup();
     }
   });
@@ -265,7 +266,9 @@ describe("product rules hold in the UI", () => {
     expect(head.firstElementChild.classList.contains("dh-clock")).toBe(true);
     const face = head.querySelector("svg.face");
     // Real numbers on the dial.
-    const nums = [...face.querySelectorAll("text")].map((t) => t.textContent);
+    const nums = [...face.querySelectorAll("text")]
+      .filter((t) => !t.classList.contains("face-digits"))
+      .map((t) => t.textContent);
     expect(nums).toHaveLength(12);
     expect(nums).toContain("12");
     // A circle, not a square: no rect, and the only outline is a circle.
@@ -275,16 +278,12 @@ describe("product rules hold in the UI", () => {
     expect(head.classList.contains("glass")).toBe(false);
   });
 
-  it("puts the digits outside the dial where they can be read", () => {
+  it("arcs the digits inside the dial", () => {
     const { container } = at("#/");
-    const face = container.querySelector("svg.face");
-    // Nothing bent around an arc inside the face.
-    expect(face.querySelector("textPath")).toBeNull();
-    const read = container.querySelector(".dh-read");
-    expect(read).toBeTruthy();
-    // Upright, outside the svg, and above it in the DOM.
-    expect(read.closest("svg")).toBeNull();
-    expect(read.compareDocumentPosition(face) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const arc = container.querySelector("svg.face .face-digits textPath");
+    expect(arc).toBeTruthy();
+    expect(arc.getAttribute("href")).toBe("#arc-digits");
+    expect(arc.textContent).toMatch(/^\d{1,2}:\d{2}$/);
   });
 
   it("keeps the clock modest in size", () => {
@@ -294,9 +293,9 @@ describe("product rules hold in the UI", () => {
     expect(w).toBeLessThanOrEqual(120);
   });
 
-  it("shows the day/night mark beside the digits", () => {
+  it("shows the day/night mark in the header line", () => {
     const { container } = at("#/");
-    const mark = container.querySelector('.dh-read [role="img"]');
+    const mark = container.querySelector('.dh-line [role="img"], .dh [role="img"]');
     expect(["day", "night"]).toContain(mark.getAttribute("aria-label"));
   });
 });
@@ -308,7 +307,8 @@ describe("the 24-hour timeline", () => {
     const { container } = at("#/");
     const cur = container.querySelector(".tl-day.current");
     expect(cur.style.height).toBe(`${1440 * px}px`);
-    expect(cur.querySelectorAll(".tl-hour").length).toBe(25);
+    // Only the visible slice is drawn, so this is bounded rather than 25.
+    expect(cur.querySelectorAll(".tl-hour").length).toBeGreaterThan(0);
     const sc = container.querySelector(".tl-scroll");
     expect(sc.style.height).toBeTruthy();
     // No sideways scrolling.
@@ -459,11 +459,13 @@ describe("blueprint wiring", () => {
     expect(window.location.hash).toBe("#/blueprints");
   });
 
-  it("leads with adding a task", () => {
+  it("leads with adding a task, from the bar every page carries", () => {
     const { container } = at("#/blueprints");
-    const add = container.querySelector("a.bp-add");
+    const add = container.querySelector("a.top-btn.add");
     expect(add.getAttribute("href")).toMatch(/\/add$/);
-    expect(add.textContent).toMatch(/New task/);
+    // Icon only — the label was noise.
+    expect(add.textContent.trim()).toBe("");
+    expect(add.getAttribute("aria-label")).toBe("New task");
   });
 });
 
@@ -526,19 +528,26 @@ describe("the Ethiopian clock — the day begins at dawn", () => {
 
   it("labels the ruler 12, 1, 2 … starting at dawn", () => {
     const { container } = at("#/");
-    const labs = [...container.querySelectorAll(".tl-hour .lab")].map((l) =>
-      Number(l.textContent.trim()),
-    );
-    expect(labs[0]).toBe(12);   // dawn
-    expect(labs[1]).toBe(1);
-    expect(labs[12]).toBe(12);  // dusk
-    expect(Math.max(...labs)).toBe(12);
+    // Only the visible window of the ruler is drawn, so assert the shape of
+    // the labels rather than their absolute positions.
+    const labs = [...container.querySelectorAll(".tl-day.current .tl-hour .lab")]
+      .map((l) => l.textContent.trim())
+      .filter((t) => /^\d+$/.test(t))
+      .map(Number);
+    expect(labs.length).toBeGreaterThan(1);
+    // Never 13 or higher: this is a 12-hour ruler, dawn-anchored.
+    expect(Math.max(...labs)).toBeLessThanOrEqual(12);
+    expect(Math.min(...labs)).toBeGreaterThanOrEqual(1);
+    // Consecutive hours step by one, wrapping 12 → 1.
+    for (let i = 1; i < labs.length; i++) {
+      expect(labs[i]).toBe(labs[i - 1] === 12 ? 1 : labs[i - 1] + 1);
+    }
   });
 
   it("shows the clock in Ethiopian form with a mark", () => {
     const { container } = at("#/");
-    expect(container.querySelector(".dh-read").textContent).toMatch(/^\d{1,2}:\d{2}:\d{2}$/);
-    expect(container.querySelector('.dh-read [role="img"]')).toBeTruthy();
+    expect(container.querySelector(".face-digits textPath").textContent).toMatch(/^\d{1,2}:\d{2}$/);
+    expect(container.querySelector('.dh-line [role="img"], .face-digits')).toBeTruthy();
   });
 
   it("fits sleep inside the day instead of overflowing it", () => {
@@ -639,7 +648,7 @@ describe("every page is reachable", () => {
     // A calendar you can point at, not just a field.
     expect(panel.querySelectorAll("a.go-day").length).toBeGreaterThan(27);
     const foot = [...panel.querySelectorAll(".go-foot a")].map((a) => a.getAttribute("href"));
-    expect(foot).toEqual(["#/", "#/calendar", "#/blueprints"]);
+    expect(foot).toEqual(["#/", "#/calendar", "#/blueprints", "#/settings"]);
   });
 
   it("suggests nearby days before anything is typed", () => {
@@ -714,10 +723,8 @@ describe("blueprints do not look like the day page", () => {
     const { container } = at("#/blueprints");
     fireEvent.click(container.querySelector(".sq"));
     const names = [...document.querySelectorAll(".pop .slot-n")].map((n) => n.textContent);
-    // Water is spread across the day rather than sitting at a time, so it
-    // leads; everything with a clock position then runs from dawn.
-    expect(names[0]).toBe("Drink water");
-    expect(names.slice(1)).toEqual(["Wake", "Breakfast", "Lunch", "Dinner", "Sleep"]);
+    // Water is planned at 6:30, after waking.
+    expect(names).toEqual(["Wake", "Drink water", "Breakfast", "Lunch", "Dinner", "Sleep"]);
   });
 });
 
@@ -972,27 +979,25 @@ describe("categories are optional and unconstrained", () => {
 });
 
 describe("the day does not change by accident", () => {
-  it("arms a confirmation instead of switching on scroll", () => {
+  it("lets you scroll freely between days, with no gate", () => {
     const { container } = at("#/");
-    // Nothing armed until you scroll well past the edge.
+    // No confirm bar, and nothing to click before you may scroll.
     expect(container.querySelector(".tl-jump")).toBeNull();
-    const sc = container.querySelector(".tl-scroll");
-    expect(sc).toBeTruthy();
-    // The threshold is deliberately far into the neighbour.
     const src = readFileSync("src/app/Timeline.jsx", "utf8");
-    expect(src).toMatch(/DAY_H \* 0\.75/);
-    expect(src).toMatch(/setArmed/);
-    // And it never sets the hash from the scroll handler.
+    expect(src).not.toMatch(/setArmed/);
+    // Scrolling still never rewrites the URL out from under you.
     expect(src).not.toMatch(/onScroll[\s\S]{0,400}window\.location\.hash =/);
   });
 
-  it("puts the now strip beside the day, not above it", () => {
+  it("puts the now strip beside Today, not beside the timeline", () => {
     const { container } = at("#/");
-    const split = container.querySelector(".day-split");
-    expect(split).toBeTruthy();
-    expect(split.querySelector(".tl-wrap")).toBeTruthy();
-    expect(split.querySelector(".ns")).toBeTruthy();
-    expect(CSS).toMatch(/\.day-split \{[^}]*display: flex/);
+    const top = container.querySelector(".day-top");
+    expect(top).toBeTruthy();
+    // Header and strip share the top row; the clock keeps its own corner.
+    expect(top.querySelector(".dh")).toBeTruthy();
+    expect(top.querySelector(".ns")).toBeTruthy();
+    expect(container.querySelector(".day-split .ns")).toBeNull();
+    expect(CSS).toMatch(/\.day-top \{[^}]*display: flex/);
   });
 });
 
@@ -1172,41 +1177,47 @@ describe("hydration is built in", () => {
     expect(container.textContent).toMatch(/Drink water/);
   });
 
-  it("is a target across the day, not a block on the ruler", () => {
+  it("is placed through the day, not left as one floating total", () => {
     const { container } = at("#/");
-    // It has its own band...
-    const band = container.querySelector(".spread-band .tally");
-    expect(band).toBeTruthy();
-    expect(band.textContent).toMatch(/Drink water/);
-    expect(band.textContent).toMatch(/0 \/ 2500 ml/);
-    // ...and no block or hairline anywhere on the timeline.
-    const tl = container.querySelector(".tl-day.current");
-    expect([...tl.querySelectorAll(".ev-title, .mo-name")]
-      .some((n) => /water/i.test(n.textContent))).toBe(false);
+    // No detached band above the day.
+    expect(container.querySelector(".spread-band")).toBeNull();
+    // Instead, real marks at real times on the ruler.
+    const sips = container.querySelectorAll(".tl-day.current .sip");
+    expect(sips.length).toBe(8);
+    expect(sips[0].getAttribute("title")).toMatch(/Drink water/);
   });
 
-  it("fills up in steps and remembers", () => {
+  it("takes no room on the ruler — a sip does not interrupt a lesson", () => {
     const { container } = at("#/");
-    const add = [...container.querySelectorAll(".tally-acts button")]
-      .find((b) => /250/.test(b.textContent));
-    fireEvent.click(add);
-    fireEvent.click(add);
-    expect(container.querySelector(".tally-read").textContent).toMatch(/500 \/ 2500 ml/);
-    const saved = JSON.parse(localStorage.getItem("planner:entries"));
-    expect(saved[0].amount).toBe(500);
+    const sip = container.querySelector(".sip");
+    expect(sip.style.height).toBe("");
+    // It is not a block and not a gap.
+    expect(sip.classList.contains("ev")).toBe(false);
   });
 
-  it("shows where an even pace would be, without scolding", () => {
+  it("records a sip in one tap, from the timeline", () => {
     const { container } = at("#/");
-    const tally = container.querySelector(".tally");
-    expect(tally.querySelector(".tally-pace")).toBeTruthy();
-    expect(tally.textContent).not.toMatch(/behind|fail|should have/i);
+    const sips = container.querySelectorAll(".tl-day.current .sip");
+    fireEvent.click(sips[0]);
+    expect(JSON.parse(localStorage.getItem("planner:entries"))[0].amount).toBe(310);
+    fireEvent.click(container.querySelectorAll(".tl-day.current .sip")[1]);
+    expect(JSON.parse(localStorage.getItem("planner:entries"))[0].amount).toBe(620);
   });
 
-  it("cannot go below zero", () => {
+  it("marks the ones already taken", () => {
     const { container } = at("#/");
-    const minus = container.querySelector(".tally-acts button");
-    expect(minus.disabled).toBe(true);
+    fireEvent.click(container.querySelectorAll(".tl-day.current .sip")[0]);
+    expect(container.querySelectorAll(".tl-day.current .sip.done").length).toBe(1);
+  });
+
+  it("still reads as a whole on its own page", () => {
+    const { container } = at("#/");
+    fireEvent.click(container.querySelectorAll(".tl-day.current .sip")[0]);
+    cleanup();
+    const t = at(`#/task/default:water/${readNow().jdn}`);
+    expect(t.container.querySelector(".tally-read").textContent).toMatch(/310 \/ 2500 ml/);
+    expect(t.container.querySelector(".tally-pace")).toBeTruthy();
+    expect(t.container.textContent).not.toMatch(/behind|fail|should have/i);
   });
 });
 
@@ -1215,15 +1226,26 @@ describe("the timeline zooms", () => {
     const { container } = at("#/");
     expect(container.querySelector('[aria-label="More detail"]')).toBeTruthy();
     expect(container.querySelector('[aria-label="Less detail"]')).toBeTruthy();
-    expect(container.querySelector(".tl-zoom-l").textContent).toBe("Normal");
+    // The label states the actual gridline spacing, not an invented name.
+    expect(container.querySelector(".tl-zoom-l").textContent).toBe("1 hr");
   });
 
-  it("adds sub-hour lines as you zoom in", () => {
+  it("adds finer lines as you zoom in", () => {
     const { container } = at("#/");
-    const before = container.querySelectorAll(".tl-hour").length;
-    fireEvent.click(container.querySelector('[aria-label="More detail"]'));
-    expect(container.querySelectorAll(".tl-hour").length).toBeGreaterThan(before);
+    const inBtn = container.querySelector('[aria-label="More detail"]');
+    fireEvent.click(inBtn);
+    expect(container.querySelector(".tl-zoom-l").textContent).toBe("30 min");
     expect(container.querySelector(".tl-hour.sub")).toBeTruthy();
+  });
+
+  it("goes all the way to half-minute lines", () => {
+    const { container } = at("#/");
+    for (let i = 0; i < 20; i++) {
+      const b = container.querySelector('[aria-label="More detail"]');
+      if (b.disabled) break;
+      fireEvent.click(b);
+    }
+    expect(container.querySelector(".tl-zoom-l").textContent).toBe("30 sec");
   });
 
   it("makes the day taller when zoomed in", () => {
@@ -1236,13 +1258,12 @@ describe("the timeline zooms", () => {
 
   it("stops at the ends rather than zooming forever", () => {
     const { container } = at("#/");
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 20; i++) {
       const b = container.querySelector('[aria-label="More detail"]');
       if (b.disabled) break;
       fireEvent.click(b);
     }
     expect(container.querySelector('[aria-label="More detail"]').disabled).toBe(true);
-    expect(container.querySelector(".tl-zoom-l").textContent).toBe("Detail");
   });
 
   it("remembers the zoom", () => {
@@ -1323,5 +1344,226 @@ describe("prototype mode", () => {
     cleanup();
     const { container } = at("#/");
     expect(container.querySelector(".proto-live")).toBeTruthy();
+  });
+});
+
+describe("nothing steals focus", () => {
+  it("does not open the panel on a bare keystroke", () => {
+    const { container } = at("#/");
+    fireEvent.keyDown(window, { key: "/" });
+    expect(document.querySelector(".go-panel")).toBeNull();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    expect(document.querySelector(".go-panel")).toBeNull();
+    fireEvent.keyDown(window, { key: "a" });
+    expect(document.querySelector(".go-panel")).toBeNull();
+  });
+
+  it("advertises no keyboard shortcut it does not honour", () => {
+    const { container } = at("#/");
+    expect(container.querySelector("button.go kbd")).toBeNull();
+  });
+
+  it("binds nothing globally while closed", () => {
+    const src = readFileSync("src/app/Nav.jsx", "utf8");
+    // The listener is registered only inside the open branch.
+    expect(src).toMatch(/if \(!open\) return undefined;[\s\S]{0,600}addEventListener\("keydown"/);
+  });
+
+  it("still takes keys once you have opened it yourself", () => {
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector("button.go"));
+    expect(document.querySelector(".go-panel")).toBeTruthy();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(document.querySelector(".go-panel")).toBeNull();
+  });
+});
+
+describe("prototypes appear inside the go-anywhere panel", () => {
+  const enable = () => {
+    const s = at("#/settings");
+    fireEvent.click([...s.container.querySelectorAll(".pref")]
+      .find((r) => /Prototype mode/.test(r.textContent))
+      .querySelector('[role="switch"]'));
+    cleanup();
+  };
+
+  it("gets its own labelled section, apart from real destinations", () => {
+    enable();
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector("button.go"));
+    fireEvent.change(document.querySelector(".go-field input"), { target: { value: "calendar" } });
+    const heads = [...document.querySelectorAll(".go-sec-h")].map((h) => h.textContent);
+    expect(heads).toContain("Prototypes");
+    expect(heads).toContain("Go to");
+  });
+
+  it("says the mode is on, and links to where to turn it off", () => {
+    enable();
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector("button.go"));
+    const flag = document.querySelector(".go-proto");
+    expect(flag.textContent).toMatch(/Prototype mode on/);
+    expect(flag.getAttribute("href")).toBe("#/settings");
+  });
+
+  it("shows no such section when the mode is off", () => {
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector("button.go"));
+    fireEvent.change(document.querySelector(".go-field input"), { target: { value: "calendar" } });
+    expect([...document.querySelectorAll(".go-sec-h")].map((h) => h.textContent))
+      .not.toContain("Prototypes");
+    expect(document.querySelector(".go-proto")).toBeNull();
+  });
+});
+
+describe("settings and adding reach every page", () => {
+  it("both live in the bar on every page", () => {
+    for (const route of ["#/", "#/calendar", "#/blueprints", `#/task/default:lunch/${readNow().jdn}`]) {
+      const { container } = at(route);
+      expect(container.querySelector('a[href="#/settings"]')).toBeTruthy();
+      expect(container.querySelector("a.top-btn.add")).toBeTruthy();
+      cleanup();
+    }
+  });
+
+  it("adds to the day you are looking at, not always today", () => {
+    const j = readNow().jdn + 3;
+    const { container } = at(`#/day/${j}`);
+    expect(container.querySelector("a.top-btn.add").getAttribute("href")).toBe(`#/day/${j}/add`);
+  });
+
+  it("does not offer to add while you are already adding", () => {
+    const { container } = at(`#/day/${readNow().jdn}/add`);
+    expect(container.querySelector("a.top-btn.add")).toBeNull();
+  });
+
+  it("has a bare #/add that means today", () => {
+    at("#/add");
+    expect(document.querySelector("#t")).toBeTruthy();
+  });
+});
+
+describe("the day header follows the timeline", () => {
+  it("names the day and opens a calendar when clicked", () => {
+    const { container } = at("#/");
+    const title = container.querySelector("button.dh-title");
+    expect(title.textContent).toMatch(/Today/);
+    fireEvent.click(title);
+    const pop = document.querySelector(".pop");
+    expect(pop).toBeTruthy();
+    expect(pop.querySelector(".mini-grid")).toBeTruthy();
+    // A window over the page — the hash is untouched.
+    expect(window.location.hash).toBe("#/");
+  });
+
+  it("picking a day navigates and closes", () => {
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector("button.dh-title"));
+    const days = document.querySelectorAll(".mini-day");
+    fireEvent.click(days[0]);
+    expect(window.location.hash).toMatch(/^#\/day\/\d+$/);
+    expect(document.querySelector(".pop")).toBeNull();
+  });
+
+  it("marks today and the day being looked at", () => {
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector("button.dh-title"));
+    expect(document.querySelector(".mini-day.today")).toBeTruthy();
+    expect(document.querySelector(".mini-day.on")).toBeTruthy();
+  });
+});
+
+describe("the calendar is not squished", () => {
+  it("lets every weekday column shrink evenly", () => {
+    // 1fr floors at min-content, so the last columns get crushed by their
+    // own text; minmax(0,1fr) is what actually divides the width evenly.
+    expect(CSS).toMatch(/\.cal-grid \{[^}]*repeat\(7, minmax\(0, 1fr\)\)/);
+    expect(CSS).toMatch(/\.go-grid \{[^}]*repeat\(7, minmax\(0, 1fr\)\)/);
+    expect(CSS).toMatch(/\.mini-grid \{[^}]*repeat\(7, minmax\(0, 1fr\)\)/);
+  });
+
+  it("still renders all seven columns with content", () => {
+    const { container } = at("#/calendar");
+    expect(container.querySelectorAll(".cal-dow").length).toBe(7);
+    expect(container.querySelectorAll(".cell:not(.blank)").length).toBeGreaterThan(27);
+  });
+});
+
+describe("the calendar-shape prototype", () => {
+  it("offers grid, day list, and both", () => {
+    const a = at("#/prototype/calview/A").container;
+    expect(a.querySelector(".cal-grid")).toBeTruthy();
+    expect(a.querySelector(".dl")).toBeNull();
+    cleanup();
+
+    const b = at("#/prototype/calview/B").container;
+    expect(b.querySelector(".dl-rows")).toBeTruthy();
+    expect(b.querySelectorAll(".dl-row").length).toBeGreaterThan(27);
+    cleanup();
+
+    const c = at("#/prototype/calview/C").container;
+    expect(c.querySelectorAll(".seg button").length).toBe(2);
+  });
+
+  it("the day list previews the selected day beside it", () => {
+    const { container } = at("#/prototype/calview/B");
+    const prev = container.querySelector(".dl-prev");
+    expect(prev).toBeTruthy();
+    fireEvent.click(container.querySelectorAll(".dl-row")[4]);
+    expect(container.querySelector(".dl-prev-h").textContent).toBeTruthy();
+  });
+
+  it("each row previews its own day in miniature", () => {
+    const { container } = at("#/prototype/calview/B");
+    expect(container.querySelector(".dl-row .dl-bar")).toBeTruthy();
+    expect(container.querySelector(".dl-row .dl-names")).toBeTruthy();
+  });
+
+  it("names the trade-off of each shape", () => {
+    for (const v of ["A", "B", "C"]) {
+      const { container } = at(`#/prototype/calview/${v}`);
+      expect(container.querySelector(".proto-note").textContent.length).toBeGreaterThan(30);
+      cleanup();
+    }
+  });
+});
+
+describe("the task form prototype shows the schedule", () => {
+  it("draws the day in every variant", () => {
+    for (const v of ["A", "C"]) {
+      const { container } = at(`#/prototype/form/${v}`);
+      expect(container.querySelector(".prev-lane")).toBeTruthy();
+      cleanup();
+    }
+
+    // B only reaches the scheduling step once the name is filled in.
+    const { container } = at("#/prototype/form/B");
+    fireEvent.change(container.querySelector(".input"), { target: { value: "Study" } });
+    fireEvent.click([...container.querySelectorAll("button")].find((b) => /Next/.test(b.textContent)));
+    expect(container.querySelector(".prev-lane")).toBeTruthy();
+  });
+
+  it("shows what is already on the day", () => {
+    const { container } = at("#/prototype/form/A");
+    const blocks = container.querySelectorAll(".prev-b");
+    expect(blocks.length).toBeGreaterThan(2);
+    expect(blocks[0].getAttribute("title")).toMatch(/—/);
+  });
+
+  it("draws the proposed block and says whether it fits", () => {
+    const { container } = at("#/prototype/form/A");
+    expect(container.querySelector(".prev-mine")).toBeTruthy();
+    expect(container.querySelector(".prev-ok").textContent).toBe("Fits");
+  });
+
+  it("turns amber and names the clash when it collides", () => {
+    const { container } = at("#/prototype/form/A");
+    fireEvent.change(container.querySelector('input[aria-label="Time"]'), {
+      target: { value: "6:30" },
+    });
+    expect(container.querySelector(".prev-warn")).toBeTruthy();
+    expect(container.querySelector(".prev-mine.clash")).toBeTruthy();
+    expect(container.querySelector(".prev-b.hit")).toBeTruthy();
+    expect(container.querySelector(".prev-note").textContent).toMatch(/Overlaps/);
   });
 });

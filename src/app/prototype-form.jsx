@@ -20,7 +20,8 @@
 import { useState } from "react";
 import Icon from "./Icon.jsx";
 import Mark from "./Mark.jsx";
-import { parseEth } from "./format.js";
+import { parseEth, fromDawn, rulerHour } from "./format.js";
+import { conflictsFor, isMoment, fmtDur } from "../log.mjs";
 import { DOW, GC_MONTHS, dayFromJdn } from "../calendar.mjs";
 import { colorOf, iconOf } from "../patterns.mjs";
 
@@ -63,6 +64,78 @@ const useDraft = (now) => {
 };
 
 const Req = () => <span className="req" title="Required">required</span>;
+
+/**
+ * The point of this form is SCHEDULING, so the day is drawn while you fill it
+ * in: where the new block lands, what is already there, and what it hits.
+ * Every variant carries it — the question is the shape of the form, not
+ * whether you should be able to see what you are doing.
+ */
+function DayPreview({ draft, tasks, compact }) {
+  const { startMin, v } = draft;
+  const dur = Number(v.dur) || 0;
+  const mine = startMin == null ? null : fromDawn(startMin);
+
+  const blocks = tasks
+    .filter((t) => t.startMin != null && !isMoment(t) && t.kind !== "tally")
+    .map((t) => ({ ...t, from: fromDawn(t.startMin), to: fromDawn(t.startMin) + (t.duration ?? 0) }));
+
+  const clashes =
+    mine == null ? [] : conflictsFor(
+      { startMin: mine, duration: dur, place: v.place.trim() || null },
+      blocks.map((b) => ({ ...b, startMin: b.from })),
+    );
+  const hit = new Set(clashes.map((c) => c.task.id));
+  const pc = (m) => `${(m / 1440) * 100}%`;
+
+  return (
+    <div className={`prev${compact ? " compact" : ""}`}>
+      <div className="prev-head">
+        <span>Your day</span>
+        {mine != null && dur ? (
+          <span className={clashes.length ? "prev-warn" : "prev-ok"}>
+            {clashes.length
+              ? `${clashes.length} clash${clashes.length > 1 ? "es" : ""}`
+              : "Fits"}
+          </span>
+        ) : <span className="dim">Pick a time</span>}
+      </div>
+
+      <div className="prev-ruler">
+        {[0, 6, 12, 18, 24].map((h) => (
+          <span key={h} className="prev-tick" style={{ left: pc(h * 60) }}>
+            {rulerHour(h * 60)}
+          </span>
+        ))}
+      </div>
+
+      <div className="prev-lane">
+        {blocks.map((b) => (
+          <span key={b.id}
+            className={`prev-b${hit.has(b.id) ? " hit" : ""}`}
+            style={{ left: pc(b.from), width: pc(Math.max(b.to - b.from, 8)) }}
+            title={`${b.title} — ${fmtDur(b.duration ?? 0)}`}>
+            <i>{b.title}</i>
+          </span>
+        ))}
+        {mine != null ? (
+          <span className={`prev-mine${clashes.length ? " clash" : ""}`}
+            style={{ left: pc(mine), width: pc(Math.max(dur, 8)) }}>
+            <i>{v.title.trim() || "New"}</i>
+          </span>
+        ) : null}
+      </div>
+
+      {clashes.length ? (
+        <p className="prev-note">
+          {clashes[0].kind === "tight"
+            ? `Only ${clashes[0].minutes} min to get from ${clashes[0].from} to ${clashes[0].to}.`
+            : `Overlaps ${clashes[0].task.title} by ${fmtDur(clashes[0].minutes)}.`}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 function DatePick({ jdn, onChange }) {
   const d = dayFromJdn(jdn);
@@ -117,10 +190,11 @@ function Cats({ categories, value, onChange }) {
 
 /* ── A — Ladder ───────────────────────────────────────────────────────── */
 
-function VariantA({ now, categories }) {
+function VariantA({ now, categories, tasks }) {
   const d = useDraft(now);
   return (
     <form className="glass panel" onSubmit={(e) => e.preventDefault()}>
+      <DayPreview draft={d} tasks={tasks} />
       <h2 className="section">The task</h2>
       <div className="field">
         <label>Name <Req /></label>
@@ -178,7 +252,7 @@ function VariantA({ now, categories }) {
 
 /* ── B — Steps ────────────────────────────────────────────────────────── */
 
-function VariantB({ now, categories }) {
+function VariantB({ now, categories, tasks }) {
   const d = useDraft(now);
   const [step, setStep] = useState(0);
 
@@ -220,6 +294,7 @@ function VariantB({ now, categories }) {
 
       {step === 1 ? (
         <>
+          <DayPreview draft={d} tasks={tasks} />
           <div className="field">
             <label>Date <Req /></label>
             <DatePick jdn={d.v.jdn} onChange={d.set("jdn")} />
@@ -283,11 +358,12 @@ function VariantB({ now, categories }) {
 
 /* ── C — Sentence ─────────────────────────────────────────────────────── */
 
-function VariantC({ now, categories }) {
+function VariantC({ now, categories, tasks }) {
   const d = useDraft(now);
   const day = dayFromJdn(d.v.jdn);
   return (
     <form className="glass panel" onSubmit={(e) => e.preventDefault()}>
+      <DayPreview draft={d} tasks={tasks} compact />
       <p className="sentence">
         I want to{" "}
         <input className="blank wide" value={d.v.title} placeholder="do what?"
@@ -345,5 +421,5 @@ function Bar({ d }) {
 
 export default function FormPrototype({ variant = "A", planner, now }) {
   const V = { A: VariantA, B: VariantB, C: VariantC }[variant] ?? VariantA;
-  return <V now={now} categories={planner.categories} />;
+  return <V now={now} categories={planner.categories} tasks={planner.tasksFor(now.jdn)} />;
 }

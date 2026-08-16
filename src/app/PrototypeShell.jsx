@@ -10,10 +10,12 @@ import Icon from "./Icon.jsx";
 import { findPrototype } from "./prototypes.js";
 import FormPrototype from "./prototype-form.jsx";
 import AddButtonPrototype from "./prototype-addbtn.jsx";
+import CalViewPrototype from "./prototype-calview.jsx";
 
 const RENDER = {
   form: (p) => <FormPrototype {...p} />,
   addbtn: (p) => <AddButtonPrototype variant={p.variant} />,
+  calview: (p) => <CalViewPrototype {...p} />,
 };
 
 export default function PrototypeShell({ proto, variant, planner, now }) {

@@ -35,7 +35,8 @@ export default function Settings({ planner, Top, theme, onToggle }) {
 
   return (
     <div className="page">
-      <Top back={{ href: "#/blueprints", label: "Blueprints" }} theme={theme} onToggle={onToggle} />
+      <Top back={{ href: "#/blueprints", label: "Blueprints" }} theme={theme} onToggle={onToggle}
+        addHref={`#/day/${planner.nowJdn ?? ""}/add`} />
 
       <h1 className="title" style={{ marginBottom: "var(--sp-5)" }}>Settings</h1>
 

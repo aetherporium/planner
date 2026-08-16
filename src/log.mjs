@@ -150,12 +150,20 @@ export const GAP_KINDS = { REST: "rest", TRAVEL: "travel" };
  * the ruler.
  */
 export const isSpreadTask = (task) => task?.kind === "tally";
+
+/**
+ * A planned tally appears on the ruler once per slot — eight small marks
+ * rather than one block. Each is an instant you act on, so they behave like
+ * moments: no height, no gap, no cursor movement.
+ */
+export const slotsOf = (task) =>
+  isSpreadTask(task) && Array.isArray(task.slots) ? task.slots : [];
 export const isMoment = (task) =>
   (task?.duration ?? 0) === 0 && !isSpreadTask(task);
 
 export const timelineWithGaps = (tasks, { dayStartMin = 360, dayEndMin = 1440 } = {}) => {
   const placed = tasks
-    // A spread task belongs to the whole day, not to a point on the ruler.
+    // A spread task has no single position; it is expanded into its slots below.
     .filter((t) => t.startMin != null && !isSpreadTask(t))
     .sort((a, b) => a.startMin - b.startMin);
 
@@ -207,13 +215,26 @@ export const timelineWithGaps = (tasks, { dayStartMin = 360, dayEndMin = 1440 } 
       to: null,
     });
   }
-  return out;
+
+  /**
+   * Planned tally slots ride ON TOP of the day. They take no time and never
+   * open a gap, so they are added after the cursor walk rather than during
+   * it — a sip of water does not interrupt a lesson.
+   */
+  for (const task of tasks) {
+    for (const [i, at] of slotsOf(task).entries()) {
+      if (at < dayStartMin || at > dayEndMin) continue;
+      out.push({ kind: "slot", task, index: i, startMin: at, endMin: at });
+    }
+  }
+
+  return out.sort((a, b) => a.startMin - b.startMin);
 };
 
 /** What just passed, what is happening now, what is next. */
 export const nowSlice = (tasks, nowMin, { pastCount = 2, futureCount = 3 } = {}) => {
   const placed = tasks
-    // A spread task belongs to the whole day, not to a point on the ruler.
+    // A spread task has no single position; it is expanded into its slots below.
     .filter((t) => t.startMin != null && !isSpreadTask(t))
     .sort((a, b) => a.startMin - b.startMin);
   const current =

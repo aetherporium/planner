@@ -6,6 +6,7 @@
  * decorative but are hard to actually read, so they get their own upright spot.
  */
 
+import Icon from "./Icon.jsx";
 import Mark from "./Mark.jsx";
 import { parts } from "./format.js";
 import { DOW, GC_MONTHS } from "../calendar.mjs";
@@ -36,6 +37,11 @@ function Face({ minutes, seconds, size, live }) {
       viewBox="0 0 200 200"
       aria-label={`${p.h}:${String(p.m).padStart(2, "0")} ${p.night ? "night" : "day"}`}
     >
+      <defs>
+        {/* upper-left arc, read left-to-right along the top of the dial */}
+        <path id="arc-digits" d="M 26 118 A 78 78 0 0 1 74 30" fill="none" />
+      </defs>
+
       <circle cx="100" cy="100" r="95" fill="none" stroke="var(--line)" strokeWidth="1" />
 
       {Array.from({ length: 60 }, (_, i) => {
@@ -66,6 +72,15 @@ function Face({ minutes, seconds, size, live }) {
         );
       })}
 
+      {/* the digital reading, arced inside the dial's upper-left */}
+      {live ? (
+        <text className="face-digits" fontSize="15" fontFamily="var(--mono)" fill="var(--ink-3)">
+          <textPath href="#arc-digits" startOffset="50%" textAnchor="middle">
+            {`${p.h}:${String(p.m).padStart(2, "0")}`}
+          </textPath>
+        </text>
+      ) : null}
+
       <line x1="100" y1="100" x2={hp.x} y2={hp.y} stroke="var(--ink)" strokeWidth="5.6" strokeLinecap="round" />
       <line x1="100" y1="100" x2={mp.x} y2={mp.y} stroke="var(--ink)" strokeWidth="3.4" strokeLinecap="round" />
       {/* the only continuous motion in the app — seconds are the only unit
@@ -79,7 +94,7 @@ function Face({ minutes, seconds, size, live }) {
   );
 }
 
-export default function DayHeader({ day, isToday, now, jdn, size = 116 }) {
+export default function DayHeader({ day, isToday, now, jdn, size = 116, onOpenCalendar }) {
   const p = parts(now.minutes);
 
   return (
@@ -102,7 +117,10 @@ export default function DayHeader({ day, isToday, now, jdn, size = 116 }) {
 
       <div className="dh-text">
         <div className="dh-line">
-          <h1 className="dh-title">{isToday ? "Today" : DOW[day.dow]}</h1>
+          <button type="button" className="dh-title" onClick={onOpenCalendar}>
+            {isToday ? "Today" : DOW[day.dow]}
+            <Icon name="calendar" size={14} />
+          </button>
           {isToday ? null : (
             <span className="dh-rel">
               {jdn < now.jdn ? "past" : "ahead"} {Math.abs(jdn - now.jdn)}d

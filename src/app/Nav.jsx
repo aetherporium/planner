@@ -35,20 +35,36 @@ export default function Nav({ now, tasks, categories, prototypeMode = false }) {
     [q, now, tasks, categories, prototypeMode],
   );
 
+  /**
+   * Prototypes are grouped under their own heading rather than mixed in with
+   * real destinations — unfinished work should be visibly set apart even
+   * when you asked for it.
+   */
+  const sections = useMemo(() => {
+    const indexed = hits.map((hit, i) => ({ hit, i }));
+    const proto = indexed.filter(({ hit }) => hit.kind === "Prototype");
+    const rest = indexed.filter(({ hit }) => hit.kind !== "Prototype");
+    return [
+      rest.length ? { name: proto.length ? "Go to" : "", items: rest } : null,
+      proto.length ? { name: "Prototypes", items: proto } : null,
+    ].filter(Boolean);
+  }, [hits]);
+
   const days = useMemo(() => ecMonthDays(view.y, view.m), [view]);
   const lead = days.length ? days[0].dow : 0;
 
+  /**
+   * Keys only ever act while the panel is ALREADY open.
+   *
+   * A global shortcut that opens a panel on a bare keystroke is wrong: it
+   * fires while you are typing in a field it does not know about, and it
+   * fires when the page is not even the thing you are looking at. Nothing in
+   * this app opens itself because a key was pressed — you open it.
+   */
   useEffect(() => {
+    if (!open) return undefined;
     const onKey = (e) => {
-      const tag = document.activeElement?.tagName;
-      const typing = tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable;
-      if (!open && (e.key === "/" || (e.key === "k" && (e.metaKey || e.ctrlKey))) && !typing) {
-        e.preventDefault();
-        setOpen(true);
-        return;
-      }
-      if (!open) return;
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") { setOpen(false); return; }
       if (e.key === "ArrowDown") { e.preventDefault(); setSel((i) => Math.min(i + 1, hits.length - 1)); }
       if (e.key === "ArrowUp") { e.preventDefault(); setSel((i) => Math.max(i - 1, 0)); }
       if (e.key === "Enter" && hits[sel]) {
@@ -85,7 +101,6 @@ export default function Nav({ now, tasks, categories, prototypeMode = false }) {
       <button className="go" onClick={() => setOpen(true)}>
         <Icon name="search" size={15} />
         <span>Go anywhere</span>
-        <kbd>/</kbd>
       </button>
 
       {open ? (
@@ -107,18 +122,23 @@ export default function Nav({ now, tasks, categories, prototypeMode = false }) {
             <div className="go-body">
               <div className="go-list">
                 {hits.length ? (
-                  hits.map((h, i) => (
-                    <a
-                      key={h.href + i}
-                      className={`go-hit${i === sel ? " sel" : ""}`}
-                      href={h.href}
-                      onMouseEnter={() => setSel(i)}
-                      onClick={() => setOpen(false)}
-                    >
-                      <span className="go-kind">{h.kind}</span>
-                      <span className="go-label">{h.label}</span>
-                      <span className={`go-sub${h.am ? " am" : ""}`}>{h.why ?? h.sub}</span>
-                    </a>
+                  sections.map((sec) => (
+                    <div className="go-sec" key={sec.name}>
+                      {sec.name ? <div className="go-sec-h">{sec.name}</div> : null}
+                      {sec.items.map(({ hit: h, i }) => (
+                        <a
+                          key={h.href + i}
+                          className={`go-hit${i === sel ? " sel" : ""}`}
+                          href={h.href}
+                          onMouseEnter={() => setSel(i)}
+                          onClick={() => setOpen(false)}
+                        >
+                          <span className="go-kind">{h.kind}</span>
+                          <span className="go-label">{h.label}</span>
+                          <span className={`go-sub${h.am ? " am" : ""}`}>{h.why ?? h.sub}</span>
+                        </a>
+                      ))}
+                    </div>
                   ))
                 ) : (
                   <div className="go-none">Nothing matches “{q}”.</div>
@@ -168,6 +188,12 @@ export default function Nav({ now, tasks, categories, prototypeMode = false }) {
               <a href="#/" onClick={() => setOpen(false)}>Today</a>
               <a href="#/calendar" onClick={() => setOpen(false)}>Calendar</a>
               <a href="#/blueprints" onClick={() => setOpen(false)}>Blueprints</a>
+              <a href="#/settings" onClick={() => setOpen(false)}>Settings</a>
+              {prototypeMode ? (
+                <a className="go-proto" href="#/settings" onClick={() => setOpen(false)}>
+                  Prototype mode on
+                </a>
+              ) : null}
             </div>
           </div>
         </div>

@@ -19,12 +19,26 @@ export const DEFAULT_TASKS = [
     title: "Drink water",
     titleAm: "ውሃ መጠጣት",
     rule: { kind: "everyday" },
-    startMin: 6 * 60,
-    duration: 0,
+    // A tally, but a PLANNED one. The target is not a vague daily hope you
+    // remember at 11pm — it is placed at real times through the day, so the
+    // timeline can remind you and you can just do as planned.
     kind: "tally",
     unit: "ml",
     target: 2500,
     step: 250,
+    startMin: 6 * 60 + 30,
+    duration: 0,
+    slots: [
+      6 * 60 + 30,   // on waking
+      8 * 60 + 30,
+      10 * 60 + 30,
+      12 * 60 + 30,  // with lunch
+      14 * 60 + 30,
+      16 * 60 + 30,
+      18 * 60 + 30,
+      20 * 60,       // last one early enough not to wake you
+    ],
+    slotAmount: 310,
     place: null,
     isDefault: true,
   },

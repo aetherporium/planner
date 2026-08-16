@@ -159,23 +159,11 @@ export default function Blueprints({ planner, now, Top, theme, onToggle }) {
 
   return (
     <div className="page">
-      <Top back={{ href: "#/", label: "Today" }} theme={theme} onToggle={onToggle} />
+      <Top back={{ href: "#/", label: "Today" }} theme={theme} onToggle={onToggle}
+        addHref={`#/day/${now.jdn}/add`} />
 
       <div className="bp-hero">
         <h1 className="title">Blueprints</h1>
-        <div className="btnrow">
-          <a className="btn" href="#/settings">
-            <Icon name="settings" size={15} />
-            Settings
-          </a>
-          <a className="bp-add" href={`#/day/${now.jdn}/add`}>
-            <Icon name="plus" size={18} />
-            <span>
-              <strong>New task</strong>
-              <small>Plan something you do</small>
-            </span>
-          </a>
-        </div>
       </div>
 
       {/* ── top half: the shelves ── */}
