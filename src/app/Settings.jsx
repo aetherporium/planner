@@ -7,6 +7,7 @@
  */
 
 import Icon from "./Icon.jsx";
+import { PROTOTYPES } from "./prototypes.js";
 
 const Toggle = ({ on, onChange, label, hint }) => (
   <label className="pref">
@@ -150,12 +151,21 @@ export default function Settings({ planner, Top, theme, onToggle }) {
       <section className="prefs">
         <h2 className="section">Prototypes</h2>
         <p className="hint" style={{ marginBottom: "var(--sp-3)" }}>
-          Three ways of building a task, side by side. Pick one and the rest get thrown away.
+          Open design questions. Each shows the same thing built several ways — pick one
+          and the rest get thrown away. They are also in Go anywhere: search “prototype”.
         </p>
-        <a className="btn" href="#/prototype/A">
-          <Icon name="pen" size={15} />
-          Task form — 3 variants
-        </a>
+        <div className="rows">
+          {PROTOTYPES.map((p) => (
+            <a className="row" key={p.id} href={`#/prototype/${p.id}/${p.variants[0][0]}`}>
+              <span className="row-main">
+                <span className="row-t">{p.title}</span>
+                <span className="row-s">{p.question}</span>
+              </span>
+              <span className="dim">{p.variants.length} variants</span>
+              <Icon name="chevRight" size={14} className="dim" />
+            </a>
+          ))}
+        </div>
       </section>
     </div>
   );

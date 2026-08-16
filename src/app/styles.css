@@ -1386,8 +1386,7 @@ a.ns-row:hover { background: var(--hover); }
   scroll-snap-type: x proximity;
 }
 .card-strip::-webkit-scrollbar { display: none; }
-/* centred until they overflow, then they run from the left */
-.card-strip.centered { justify-content: safe center; }
+/* Items always run from the left in their order — only the heading centres. */
 
 .sq {
   flex: 0 0 auto;
@@ -1614,7 +1613,30 @@ a.ns-row:hover { background: var(--hover); }
 
 /* ═══ Prototype (throwaway) ═══════════════════════════════════════════ */
 
-.proto { padding-bottom: 96px; }
+.proto { padding-bottom: 110px; }
+
+.proto-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-4);
+}
+
+.proto-stage {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  position: relative;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      transparent 0 11px,
+      color-mix(in srgb, var(--ink) 2%, transparent) 11px 22px
+    );
+}
+
+.proto-note { margin-top: var(--sp-4); }
+
 .proto-tag {
   font-size: var(--f-xs);
   letter-spacing: var(--ls-wide);
@@ -1623,8 +1645,53 @@ a.ns-row:hover { background: var(--hover); }
   background: var(--gold-soft);
   border-radius: var(--r-full);
   padding: 4px 12px;
-  display: inline-block;
-  margin-bottom: var(--sp-3);
+}
+
+/* variant A — the add button carries no more weight than its neighbours */
+.quiet-add { color: var(--accent); }
+.quiet-add:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+/* variant B — primary, but outlined rather than filled */
+.outline-add {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: var(--accent-soft);
+  font-weight: var(--w-medium);
+}
+.outline-add:hover { border-color: var(--accent); }
+
+/* variant C — out of the reading path */
+.fab {
+  position: absolute;
+  right: var(--sp-5);
+  bottom: var(--sp-5);
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow);
+  transition: transform var(--dur) var(--ease);
+}
+[data-theme="dark"] .fab { color: #10201b; }
+.fab:hover { transform: scale(1.06); }
+
+/* variant D — adding sits among the things it makes */
+.sq-add {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: var(--accent-soft);
+}
+.sq-add .sq-n { color: var(--accent); }
+.sq-badge.add { color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+
+.sw-count {
+  font-size: var(--f-xs);
+  color: currentColor;
+  opacity: 0.55;
+  padding-right: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .steps { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-5); flex-wrap: wrap; }

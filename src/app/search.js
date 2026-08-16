@@ -29,6 +29,14 @@ import {
   isGcLeap,
 } from "../calendar.mjs";
 import { patternsIn } from "../patterns.mjs";
+import { prototypeHits } from "./prototypes.js";
+
+const PLACES = [
+  ["Settings", "#/settings", "Preferences and demo content"],
+  ["Blueprints", "#/blueprints", "Every task you have"],
+  ["Calendar", "#/calendar", "The year, month by month"],
+  ["Today", "#/", ""],
+];
 
 const DOW_AM = ["እሑድ", "ሰኞ", "ማክሰኞ", "ረቡዕ", "ሐሙስ", "ዓርብ", "ቅዳሜ"];
 const EC_M_AM = [
@@ -168,9 +176,18 @@ export const search = (q, now, ctx = {}) => {
     }
   }
 
+  // Settings and other plain destinations.
+  for (const [name, href, sub] of PLACES) {
+    if (name.toLowerCase().includes(s)) out.push({ kind: "Page", label: name, sub, href });
+  }
+
+  // Open design questions — searchable like anything else, and "prototype"
+  // finds every one of them.
+  out.push(...prototypeHits(raw));
+
   // de-duplicate by destination, keep first reason
   const seen = new Set();
-  return out.filter((h) => !seen.has(h.href) && seen.add(h.href)).slice(0, 10);
+  return out.filter((h) => !seen.has(h.href) && seen.add(h.href)).slice(0, 12);
 };
 
 /** With an empty field: where you are likely to want to go. */

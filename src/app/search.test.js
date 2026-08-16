@@ -9,6 +9,10 @@ import { dayFromGc, dayFromJdn, DOW } from "../calendar.mjs";
 
 // Fri 14 Aug 2026 GC = Nehase 8, 2018 EC
 const NOW = { jdn: dayFromGc(2026, 8, 14).jdn };
+const CTX = {
+  tasks: [{ id: "t1", title: "Lunch", rule: { kind: "everyday" }, startMin: 750, duration: 45 }],
+  categories: [],
+};
 const kinds = (hits) => hits.map((h) => h.kind);
 const days = (hits) => hits.filter((h) => h.kind === "Day");
 
@@ -173,5 +177,48 @@ describe("housekeeping", () => {
     for (const q of ["saturday", "17", "8/12", "meskerem", "tomorrow"]) {
       for (const h of search(q, NOW)) expect(h.href).toMatch(/^#\//);
     }
+  });
+});
+
+describe("prototypes are findable like anything else", () => {
+  it("'prototype' finds every open question", () => {
+    const hits = search("prototype", NOW, CTX);
+    const protos = hits.filter((h) => h.kind === "Prototype");
+    // Every prototype, every variant.
+    const ids = new Set(protos.map((h) => h.href.split("/")[2]));
+    expect(ids.has("form")).toBe(true);
+    expect(ids.has("addbtn")).toBe(true);
+  });
+
+  it("a partial word finds them too", () => {
+    for (const q of ["proto", "protot"]) {
+      expect(search(q, NOW, CTX).some((h) => h.kind === "Prototype")).toBe(true);
+    }
+  });
+
+  it("finds a prototype by what it is about, not just by name", () => {
+    const byButton = search("button", NOW, CTX).filter((h) => h.kind === "Prototype");
+    expect(byButton.length).toBeGreaterThan(0);
+    expect(byButton[0].href).toMatch(/#\/prototype\/addbtn\//);
+
+    const byField = search("frequency", NOW, CTX).filter((h) => h.kind === "Prototype");
+    expect(byField.some((h) => h.href.includes("/form/"))).toBe(true);
+  });
+
+  it("carries the question as the reason it matched", () => {
+    const hit = search("prototype", NOW, CTX).find((h) => h.kind === "Prototype");
+    expect(hit.why).toMatch(/\?$/);
+    expect(hit.label).toMatch(/ — [A-D]$/);
+  });
+
+  it("does not surface prototypes for ordinary searches", () => {
+    for (const q of ["lunch", "monday", "14"]) {
+      expect(search(q, NOW, CTX).some((h) => h.kind === "Prototype")).toBe(false);
+    }
+  });
+
+  it("finds the plain pages too", () => {
+    expect(search("settings", NOW, CTX).some((h) => h.href === "#/settings")).toBe(true);
+    expect(search("blue", NOW, CTX).some((h) => h.href === "#/blueprints")).toBe(true);
   });
 });

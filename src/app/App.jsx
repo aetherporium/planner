@@ -18,7 +18,7 @@ import NowStrip from "./NowStrip.jsx";
 import Popup from "./Popup.jsx";
 import Blueprints from "./Blueprints.jsx";
 import Settings from "./Settings.jsx";
-import FormPrototype from "./prototype-form.jsx";
+import PrototypeShell from "./PrototypeShell.jsx";
 import { useRoute, useTheme, useNowTick } from "./hooks.js";
 import { usePlanner, readNow, ruleIdOf } from "./store.js";
 import { EC_MONTHS, GC_MONTHS, DOW, ecMonthDays, dayFromJdn } from "../calendar.mjs";
@@ -569,7 +569,7 @@ export default function App() {
       page = <Settings Top={Top} {...common} />;
       break;
     case "prototype":
-      return <FormPrototype variant={route.variant} planner={planner} now={now} />;
+      return <PrototypeShell proto={route.proto} variant={route.variant} planner={planner} now={now} />;
     case "task":
       page = <TaskPage id={route.id} jdn={route.jdn} {...common} />;
       break;

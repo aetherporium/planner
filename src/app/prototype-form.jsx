@@ -29,12 +29,6 @@ const EC_M_AM = [
   "መጋቢት", "ሚያዝያ", "ግንቦት", "ሰኔ", "ሐምሌ", "ነሐሴ", "ጳጉሜ",
 ];
 
-const VARIANTS = [
-  ["A", "Ladder — everything on one page"],
-  ["B", "Steps — three gates"],
-  ["C", "Sentence — fill in the blanks"],
-];
-
 const FREQS = (day) => [
   ["once", "just once"],
   ["daily", "every day"],
@@ -349,28 +343,7 @@ function Bar({ d }) {
   );
 }
 
-function Switcher({ current }) {
-  const i = Math.max(0, VARIANTS.findIndex(([k]) => k === current));
-  const to = (n) => `#/prototype/${VARIANTS[(n + VARIANTS.length) % VARIANTS.length][0]}`;
-  return (
-    <div className="switcher">
-      <a className="sw-arrow" href={to(i - 1)} aria-label="Previous variant"><Icon name="chevLeft" size={15} /></a>
-      <span className="sw-label"><strong>{VARIANTS[i][0]}</strong> {VARIANTS[i][1]}</span>
-      <a className="sw-arrow" href={to(i + 1)} aria-label="Next variant"><Icon name="chevRight" size={15} /></a>
-    </div>
-  );
-}
-
 export default function FormPrototype({ variant = "A", planner, now }) {
   const V = { A: VariantA, B: VariantB, C: VariantC }[variant] ?? VariantA;
-  return (
-    <div className="shell proto">
-      <div className="proto-tag">Prototype · task form · throwaway</div>
-      <a className="top-back" href="#/settings" style={{ marginBottom: 16 }}>
-        <Icon name="arrowLeft" size={16} /> Back to settings
-      </a>
-      <V now={now} categories={planner.categories} />
-      <Switcher current={variant} />
-    </div>
-  );
+  return <V now={now} categories={planner.categories} />;
 }

@@ -31,7 +31,7 @@ export const parseHash = (raw) => {
   }
   if (head === "blueprints") return { name: "blueprints", focus: a ?? null };
   if (head === "settings") return { name: "settings" };
-  if (head === "prototype") return { name: "prototype", variant: (a ?? "A").toUpperCase() };
+  if (head === "prototype") return { name: "prototype", proto: a ?? "form", variant: (b ?? "A").toUpperCase() };
   if (head === "task" && a) return { name: "task", id: a, jdn: b ? Number(b) : null };
   return { name: "today" };
 };

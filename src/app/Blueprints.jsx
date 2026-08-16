@@ -84,7 +84,7 @@ export default function Blueprints({ planner, now, Top, theme, onToggle }) {
           <section className="shelf">
             <h2 className="section centered">Patterns</h2>
             <p className="shelf-note">Found in your tasks — you never make these.</p>
-            <div className="card-strip centered">
+            <div className="card-strip">
               {patterns.map((p) => (
                 <button key={p.id} className="sq" onClick={() => setOpen({ kind: "pattern", id: p.id })}>
                   <Icon name="pattern" size={17} className="sq-i" />
@@ -100,7 +100,7 @@ export default function Blueprints({ planner, now, Top, theme, onToggle }) {
         <section className="shelf">
           <h2 className="section centered">Categories</h2>
           <p className="shelf-note">Optional. Group tasks however you like.</p>
-          <div className="card-strip centered">
+          <div className="card-strip">
             <button className="sq sq-new" onClick={() => setMaking(true)} aria-label="New category" title="New category">
               <Icon name="plus" size={22} />
             </button>

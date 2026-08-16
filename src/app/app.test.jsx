@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, within, fireEvent } from "@testing-library/react";
 import { readFileSync } from "node:fs";
+import { PROTOTYPES } from "./prototypes.js";
 
 const CSS = readFileSync("src/app/styles.css", "utf8");
 import App from "./App.jsx";
@@ -915,8 +916,14 @@ describe("blueprints is split, and lists everything", () => {
     expect(names()).toEqual([...names()].sort());
   });
 
-  it("centres the strips", () => {
-    expect(CSS).toMatch(/\.card-strip\.centered \{[^}]*justify-content: safe center/);
+  it("centres the headings but leaves the items in their order", () => {
+    const { container } = at("#/blueprints");
+    // The label is centred.
+    expect(container.querySelector(".section.centered")).toBeTruthy();
+    expect(CSS).toMatch(/\.section\.centered \{[^}]*text-align: center/);
+    // The row itself is not — order is meaningful, so it starts at the left.
+    expect(CSS).not.toMatch(/\.card-strip[^{]*\{[^}]*justify-content: (safe )?center/);
+    expect(container.querySelector(".card-strip").className).not.toMatch(/centered/);
   });
 
   it("opens patterns and categories wider than go-anywhere", () => {
@@ -988,23 +995,23 @@ describe("the day does not change by accident", () => {
 
 describe("the task-form prototype", () => {
   it("renders three structurally different variants", () => {
-    const a = at("#/prototype/A").container;
+    const a = at("#/prototype/form/A").container;
     expect(a.querySelectorAll(".section").length).toBeGreaterThan(2); // grouped ladder
     expect(a.querySelector(".steps")).toBeNull();
     cleanup();
 
-    const b = at("#/prototype/B").container;
+    const b = at("#/prototype/form/B").container;
     expect(b.querySelectorAll(".step").length).toBe(3);
     cleanup();
 
-    const c = at("#/prototype/C").container;
+    const c = at("#/prototype/form/C").container;
     expect(c.querySelector(".sentence")).toBeTruthy();
     expect(c.querySelectorAll(".blank").length).toBeGreaterThan(3);
   });
 
   it("every variant treats frequency as required", () => {
     for (const v of ["A", "B", "C"]) {
-      const { container } = at(`#/prototype/${v}`);
+      const { container } = at(`#/prototype/form/${v}`);
       expect(container.textContent).toMatch(/how often|required/i);
       expect(container.querySelector(".req")).toBeTruthy();
       cleanup();
@@ -1013,7 +1020,7 @@ describe("the task-form prototype", () => {
 
   it("no variant can be submitted without a frequency", () => {
     for (const v of ["A", "C"]) {
-      const { container } = at(`#/prototype/${v}`);
+      const { container } = at(`#/prototype/form/${v}`);
       fireEvent.change(container.querySelector('input[placeholder="do what?"], .input'), {
         target: { value: "Read" },
       });
@@ -1026,16 +1033,86 @@ describe("the task-form prototype", () => {
 
   it("every variant has a description field", () => {
     for (const v of ["A", "B", "C"]) {
-      const { container } = at(`#/prototype/${v}`);
+      const { container } = at(`#/prototype/form/${v}`);
       expect(container.querySelector("textarea")).toBeTruthy();
       cleanup();
     }
   });
 
   it("is marked throwaway and can get back", () => {
-    const { container } = at("#/prototype/A");
+    const { container } = at("#/prototype/form/A");
     expect(container.querySelector(".proto-tag").textContent).toMatch(/throwaway/i);
     expect(container.querySelector('a[href="#/settings"]')).toBeTruthy();
     expect(container.querySelector(".switcher")).toBeTruthy();
+    // The stage is visibly not the real app.
+    expect(container.querySelector(".proto-stage")).toBeTruthy();
+  });
+});
+
+describe("prototypes are a section of go anywhere", () => {
+  it("searching 'prototype' lists them in the panel", () => {
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector("button.go"));
+    fireEvent.change(document.querySelector(".go-field input"), { target: { value: "prototype" } });
+    const rows = [...document.querySelectorAll(".go-list .go-hit")];
+    expect(rows.length).toBeGreaterThan(3);
+    expect(rows.every((r) => /Prototype/.test(r.textContent))).toBe(true);
+  });
+
+  it("choosing one goes straight to that variant", () => {
+    const { container } = at("#/");
+    fireEvent.click(container.querySelector("button.go"));
+    fireEvent.change(document.querySelector(".go-field input"), { target: { value: "button" } });
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(window.location.hash).toMatch(/^#\/prototype\/addbtn\/[A-D]$/);
+  });
+
+  it("the register is the only list — settings reads from it", () => {
+    const { container } = at("#/settings");
+    const links = [...container.querySelectorAll('a[href^="#/prototype/"]')];
+    expect(links.length).toBe(PROTOTYPES.length);
+    for (const p of PROTOTYPES) {
+      expect(links.some((l) => l.getAttribute("href").includes(`/${p.id}/`))).toBe(true);
+    }
+  });
+});
+
+describe("the add-button prototype", () => {
+  it("offers four genuinely different placements", () => {
+    const seen = new Set();
+    for (const [v, sel] of [["A", ".quiet-add"], ["B", ".outline-add"], ["C", ".fab"], ["D", ".sq-add"]]) {
+      const { container } = at(`#/prototype/addbtn/${v}`);
+      expect(container.querySelector(sel)).toBeTruthy();
+      seen.add(sel);
+      cleanup();
+    }
+    expect(seen.size).toBe(4);
+  });
+
+  it("shows the button in place, against real page furniture", () => {
+    const { container } = at("#/prototype/addbtn/A");
+    expect(container.querySelector(".bp-hero")).toBeTruthy();
+    expect(container.querySelector(".card-strip")).toBeTruthy();
+    expect(container.querySelectorAll(".trow").length).toBeGreaterThan(3);
+  });
+
+  it("names the trade-off rather than only showing it", () => {
+    const { container } = at("#/prototype/addbtn/C");
+    expect(container.querySelector(".proto-note").textContent).toMatch(/go-anywhere/i);
+  });
+
+  it("keeps the strip items in order, headings centred", () => {
+    const { container } = at("#/prototype/addbtn/D");
+    // The add card leads the strip; the new-category square follows it.
+    const kids = [...container.querySelector(".card-strip").children];
+    expect(kids[0].classList.contains("sq-add")).toBe(true);
+    expect(kids[1].classList.contains("sq-new")).toBe(true);
+  });
+
+  it("cycles through all four", () => {
+    const { container } = at("#/prototype/addbtn/A");
+    expect(container.querySelector(".sw-count").textContent).toBe("1/4");
+    const next = container.querySelector('.switcher a[aria-label="Next variant"]');
+    expect(next.getAttribute("href")).toBe("#/prototype/addbtn/B");
   });
 });
