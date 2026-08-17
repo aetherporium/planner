@@ -141,13 +141,22 @@ export const usePlanner = () => {
 
   // Defaults are product, not user data, so their category lives separately.
   const [defaultCats, setDefaultCats] = usePersisted("planner:defaultCats", {});
+  // Defaults are rebuilt from code each load, so their per-date exceptions
+  // and edits have to be kept beside them rather than on them.
+  const [defaultBlocks, setDefaultBlocks] = usePersisted("planner:defaultBlocks", {});
+  const [defaultEdits, setDefaultEdits] = usePersisted("planner:defaultEdits", {});
 
   const allTasks = useMemo(
     () => [
-      ...buildDefaults(new Set(disabled)).map((t) => ({ ...t, categoryId: defaultCats[t.id] ?? null })),
+      ...buildDefaults(new Set(disabled)).map((t) => ({
+        ...t,
+        ...(defaultEdits[t.id] ?? null),
+        categoryId: defaultCats[t.id] ?? null,
+        blocked: defaultBlocks[t.id] ?? [],
+      })),
       ...userTasks,
     ],
-    [disabled, userTasks, defaultCats],
+    [disabled, userTasks, defaultCats, defaultBlocks, defaultEdits],
   );
 
   const day = useCallback((jdn) => dayFromJdn(jdn), []);
@@ -159,6 +168,10 @@ export const usePlanner = () => {
       return allTasks
         .filter((t) => t.enabled !== false)
         .filter((t) => (t.rule ? firesOn(t.rule, d) : t.dates?.includes(d.iso)))
+        // A blocked date is an exception to the pattern: the task repeats as
+        // before, just not on that day. Skipping one Tuesday should not mean
+        // rewriting what "every Tuesday" means.
+        .filter((t) => !t.blocked?.includes(d.iso))
         .sort((a, b) => (a.startMin ?? 0) - (b.startMin ?? 0));
     },
     [allTasks],
@@ -169,7 +182,17 @@ export const usePlanner = () => {
   // the day's edge instead of overflowing past it.
   const timelineFor = useCallback(
     (jdn) => {
-      const shifted = tasksFor(jdn).map((t) => ({ ...t, startMin: fromDawn(t.startMin) }));
+      /*
+       * Slots are clock times like everything else, so they have to be moved
+       * onto the dawn axis with the task's own start. Left alone they were
+       * read as if already dawn-relative, which pushed every sip six hours
+       * late — the last one landed at 2am, in the middle of sleep.
+       */
+      const shifted = tasksFor(jdn).map((t) => ({
+        ...t,
+        startMin: fromDawn(t.startMin),
+        ...(Array.isArray(t.slots) ? { slots: t.slots.map(fromDawn) } : null),
+      }));
       return timelineWithGaps(shifted, { dayStartMin: 0, dayEndMin: 1440 }).map((it) =>
         it.kind === "task" ? { ...it, task: { ...it.task, startMin: toClock(it.task.startMin) } } : it,
       );
@@ -208,8 +231,16 @@ export const usePlanner = () => {
   );
 
   const updateTask = useCallback(
-    (id, patch) => setUserTasks((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t))),
-    [setUserTasks],
+    (id, patch) => {
+      // A default is not in userTasks, so editing one is recorded as an
+      // override keyed by its id instead of mutating a list it is not in.
+      if (buildDefaults(new Set()).some((t) => t.id === id)) {
+        setDefaultEdits((m) => ({ ...m, [id]: { ...(m[id] ?? null), ...patch } }));
+        return;
+      }
+      setUserTasks((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    },
+    [setUserTasks, setDefaultEdits],
   );
 
   const removeTask = useCallback(
@@ -218,6 +249,26 @@ export const usePlanner = () => {
       setEntries((es) => es.filter((e) => e.taskId !== id));
     },
     [setUserTasks, setEntries],
+  );
+
+  /**
+   * Block or unblock a single date on a repeating task.
+   *
+   * Defaults are rebuilt from code on every load and so cannot carry state of
+   * their own; their overrides live in a keyed map instead, merged in above.
+   */
+  const toggleBlocked = useCallback(
+    (id, iso) => {
+      const flip = (list = []) =>
+        list.includes(iso) ? list.filter((x) => x !== iso) : [...list, iso];
+      const isDefault = buildDefaults(new Set()).some((t) => t.id === id);
+      if (isDefault) {
+        setDefaultBlocks((m) => ({ ...m, [id]: flip(m[id]) }));
+      } else {
+        setUserTasks((ts) => ts.map((t) => (t.id === id ? { ...t, blocked: flip(t.blocked) } : t)));
+      }
+    },
+    [setUserTasks, setDefaultBlocks],
   );
 
   const toggleDefault = useCallback(
@@ -377,6 +428,7 @@ export const usePlanner = () => {
     addTask,
     updateTask,
     removeTask,
+    toggleBlocked,
     toggleDefault,
     findTask,
     addDays,

@@ -28,15 +28,22 @@ export const DEFAULT_TASKS = [
     step: 250,
     startMin: 6 * 60 + 30,
     duration: 0,
+    /*
+     * Placed around the other fixed points of the day rather than on a blind
+     * two-hour rhythm: just after waking, after breakfast, before lunch
+     * rather than during it, through the afternoon, and a last one well
+     * before sleep at 22:30 so it does not wake you. Nothing sits on top of
+     * a meal, and nothing falls in the night.
+     */
     slots: [
-      6 * 60 + 30,   // on waking
-      8 * 60 + 30,
-      10 * 60 + 30,
-      12 * 60 + 30,  // with lunch
-      14 * 60 + 30,
-      16 * 60 + 30,
-      18 * 60 + 30,
-      20 * 60,       // last one early enough not to wake you
+      6 * 60 + 30,   // just after waking
+      8 * 60,        // after breakfast
+      10 * 60,
+      12 * 60 + 15,  // before lunch, not during it
+      14 * 60,
+      16 * 60,
+      18 * 60,       // before dinner
+      20 * 60 + 30,  // last one, two hours before sleep
     ],
     slotAmount: 310,
     place: null,

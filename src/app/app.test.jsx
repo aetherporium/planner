@@ -15,6 +15,7 @@ import { parseHash } from "./hooks.js";
 import { readNow, ruleIdOf, ruleById } from "./store.js";
 import { t12, parts, fromDawn, parseEth, DAWN } from "./format.js";
 import { dayFromJdn, ecMonthDays } from "../calendar.mjs";
+import { DEFAULT_TASKS } from "../defaults.mjs";
 
 const at = (hash) => {
   window.location.hash = hash;
@@ -303,28 +304,33 @@ describe("product rules hold in the UI", () => {
 describe("the 24-hour timeline", () => {
   const px = 1.15;
 
-  it("covers a full 24 hours per day and scrolls vertically only", () => {
+  it("covers a full 24 hours and lays out at full height in the page", () => {
     const { container } = at("#/");
     const cur = container.querySelector(".tl-day.current");
     expect(cur.style.height).toBe(`${1440 * px}px`);
     // Only the visible slice is drawn, so this is bounded rather than 25.
     expect(cur.querySelectorAll(".tl-hour").length).toBeGreaterThan(0);
+
+    // The page is the scroller: the timeline fixes no height of its own and
+    // opens no second scrollbar inside the page.
     const sc = container.querySelector(".tl-scroll");
-    expect(sc.style.height).toBeTruthy();
-    // No sideways scrolling.
-    expect(CSS).toMatch(/\.tl-scroll \{[^}]*overflow-x: hidden/);
+    expect(sc.style.height).toBeFalsy();
+    expect(CSS).not.toMatch(/\.tl-scroll \{[^}]*overflow-y: auto/);
+    expect(container.querySelector(".tl-track").style.height).toBe(`${1440 * px}px`);
   });
 
-  it("holds yesterday, today and tomorrow in one timeline", () => {
+  it("shows one day, and ends where the day ends", () => {
     const jdn = readNow().jdn;
     const { container } = at("#/");
-    const days = container.querySelectorAll(".tl-day");
-    expect(days).toHaveLength(3);
+    // You cannot drift into a neighbouring day by scrolling.
+    expect(container.querySelectorAll(".tl-day")).toHaveLength(1);
     expect(container.querySelectorAll(".tl-day.current")).toHaveLength(1);
-    expect(container.querySelectorAll(".tl-day.neighbour")).toHaveLength(2);
-    // Dividers link to the neighbouring days.
+    expect(container.querySelectorAll(".tl-day.neighbour")).toHaveLength(0);
+
+    // Crossing a day is deliberate: an affordance at each end.
     const divs = [...container.querySelectorAll("a.tl-div")].map((a) => a.getAttribute("href"));
     expect(divs).toContain(`#/day/${jdn + 1}`);
+    expect(divs).toContain(`#/day/${jdn - 1}`);
   });
 
   it("points the next-day arrow downward", () => {
@@ -677,17 +683,23 @@ describe("every page is reachable", () => {
     }
   });
 
-  it("keeps the neighbouring days inside the same timeline", () => {
+  it("reaches the neighbouring days without scrolling into them", () => {
     const jdn = readNow().jdn;
     const { container } = at("#/");
-    // Not separate rails outside the scroller any more.
     expect(container.querySelector(".adj")).toBeNull();
+
+    // The scroller holds today and nothing else.
     const days = [...container.querySelectorAll(".tl-day")];
-    expect(days).toHaveLength(3);
-    // All three live inside the one scroller.
-    for (const d of days) expect(d.closest(".tl-scroll")).toBeTruthy();
-    expect([...container.querySelectorAll("a.tl-div")].map((a) => a.getAttribute("href")))
-      .toContain(`#/day/${jdn + 1}`);
+    expect(days).toHaveLength(1);
+    expect(days[0].closest(".tl-scroll")).toBeTruthy();
+
+    // Both neighbours are one deliberate click away, and the affordances sit
+    // outside the scrolling area rather than at the far end of it.
+    const divs = [...container.querySelectorAll("a.tl-div")];
+    const hrefs = divs.map((a) => a.getAttribute("href"));
+    expect(hrefs).toContain(`#/day/${jdn + 1}`);
+    expect(hrefs).toContain(`#/day/${jdn - 1}`);
+    for (const d of divs) expect(d.closest(".tl-scroll")).toBeNull();
   });
 
   it("reaches the add page and the task page from the day", () => {
@@ -1287,12 +1299,20 @@ describe("the timeline zooms", () => {
 });
 
 describe("opening today lands on what you are doing", () => {
-  it("scrolls to the current or last task, not to the top", () => {
-    const { container } = at("#/");
-    const sc = container.querySelector(".tl-scroll");
-    // jsdom does not lay out, but the component must have set a position
-    // past the first day rather than leaving it at zero.
-    expect(sc.scrollTop).toBeGreaterThan(0);
+  it("scrolls the page to the current or last task, not to the top", () => {
+    // The page is the scroller now, so this is a window scroll. jsdom does
+    // not lay out, so assert the call was made rather than the pixel value.
+    const spy = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    try {
+      at("#/");
+      expect(spy).toHaveBeenCalled();
+      const arg = spy.mock.calls.at(-1)[0];
+      expect(typeof arg).toBe("object");
+      expect(arg).toHaveProperty("top");
+      expect(Number.isFinite(arg.top)).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("anchors on a task rather than the raw clock", () => {
@@ -1674,7 +1694,7 @@ describe("zoom is not only a button", () => {
     const src = readFileSync("src/app/Timeline.jsx", "utf8");
     // Anchored zoom, or the day jumps somewhere else as you scale.
     expect(src).toMatch(/zoomAround/);
-    expect(src).toMatch(/before \* next - anchor/);
+    expect(src).toMatch(/into \* next - anchorY/);
   });
 
   it("does not hijack the browser's own zoom outside the timeline", () => {
@@ -1906,5 +1926,229 @@ describe("the calendar's two views", () => {
     const src = readFileSync("src/app/App.jsx", "utf8");
     const list = src.slice(src.indexOf("function CalendarList"), src.indexOf("function CalendarPage"));
     expect(list).not.toMatch(/colorOf|background(Color)?:/);
+  });
+});
+
+/**
+ * Hydration is scheduled with everything else, but it takes no time. It was
+ * being drawn as a pill on top of whatever it happened during, and — worse —
+ * its slots were never moved onto the dawn axis the way task starts are, so
+ * every sip sat six hours late. The last one landed at 2am, during sleep.
+ */
+describe("water is placed, and drawn as a line", () => {
+  beforeEach(() => { cleanup(); localStorage.clear(); });
+
+  it("puts no sip in the night", () => {
+    const { container } = at("#/");
+    const sips = [...container.querySelectorAll(".sip")];
+    expect(sips.length).toBeGreaterThan(0);
+
+    const sleep = DEFAULT_TASKS.find((t) => t.key === "sleep");
+    const wake = DEFAULT_TASKS.find((t) => t.key === "wake");
+    const water = DEFAULT_TASKS.find((t) => t.key === "water");
+    // every slot lands between waking and going to sleep
+    for (const at_ of water.slots) {
+      expect(at_).toBeGreaterThanOrEqual(wake.startMin);
+      expect(at_).toBeLessThan(sleep.startMin);
+    }
+  });
+
+  it("lands each sip on the ruler at the time it is planned for", () => {
+    const { container } = at("#/");
+    const water = DEFAULT_TASKS.find((t) => t.key === "water");
+    const labels = [...container.querySelectorAll(".sip")].map((s) => s.getAttribute("aria-label"));
+    // the label states a clock time, and it is the planned one
+    water.slots.forEach((min, i) => {
+      expect(labels[i]).toContain(t12(min));
+    });
+  });
+
+  it("does not collide with the meals it sits between", () => {
+    const water = DEFAULT_TASKS.find((t) => t.key === "water");
+    const meals = DEFAULT_TASKS.filter((t) => ["breakfast", "lunch", "dinner"].includes(t.key));
+    for (const slot of water.slots) {
+      for (const m of meals) {
+        const inside = slot > m.startMin && slot < m.startMin + m.duration;
+        expect(inside).toBe(false);
+      }
+    }
+  });
+
+  it("draws a rule across the ruler rather than a block", () => {
+    const { container } = at("#/");
+    const sip = container.querySelector(".sip");
+    expect(sip.querySelector(".sip-rule")).not.toBeNull();
+    expect(sip.querySelector(".sip-tag")).not.toBeNull();
+    // no height of its own: a moment occupies no span of the day
+    expect(CSS).toMatch(/\.sip \{[^}]*height: 14px/);
+    expect(CSS).toMatch(/\.sip-rule \{[^}]*border-top/);
+  });
+});
+
+/**
+ * The day is one page and the page is the scroller. The header is the top of
+ * that page, not a frame above a second scrollbar.
+ */
+describe("the day scrolls as one page", () => {
+  beforeEach(() => { cleanup(); localStorage.clear(); });
+
+  it("gives the timeline no scrollbar of its own", () => {
+    const { container } = at("#/");
+    expect(container.querySelector(".tl-scroll").style.height).toBeFalsy();
+    expect(CSS).not.toMatch(/\.tl-scroll \{[^}]*overflow-y/);
+    // and the day still lays out at its full height
+    const px = 1.15;
+    expect(container.querySelector(".tl-track").style.height).toBe(`${1440 * px}px`);
+  });
+
+  it("puts the header in the scrolling flow, above the timeline", () => {
+    const { container } = at("#/");
+    const top = container.querySelector(".day-top");
+    const tl = container.querySelector(".tl-wrap");
+    expect(top).not.toBeNull();
+    // the header is a sibling before the timeline, not a fixed frame
+    expect(top.compareDocumentPosition(tl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(CSS).not.toMatch(/\.day-top \{[^}]*position: fixed/);
+  });
+
+  it("leaves a minimal rail behind: the time, and what is now and next", () => {
+    const { container } = at("#/");
+    const rail = container.querySelector(".rail");
+    expect(rail).not.toBeNull();
+    // digital, and small
+    expect(rail.querySelector(".rail-clock")).not.toBeNull();
+    expect(rail.querySelector(".face")).toBeNull();      // no dial in the rail
+    expect(CSS).toMatch(/\.rail-slot \{[^}]*position: sticky/);
+  });
+
+  it("shows only the current and the next few in the rail", () => {
+    const { container } = at("#/");
+    const shown = container.querySelectorAll(".rail-task");
+    expect(shown.length).toBeLessThanOrEqual(3);
+  });
+});
+
+describe("a day ends where the day ends", () => {
+  beforeEach(() => { cleanup(); localStorage.clear(); });
+
+  it("holds exactly one day in the scroller", () => {
+    const { container } = at("#/");
+    expect(container.querySelectorAll(".tl-day")).toHaveLength(1);
+    expect(container.querySelectorAll(".tl-day.neighbour")).toHaveLength(0);
+  });
+
+  it("crosses a day only on purpose, up for back and down for forward", () => {
+    const jdn = readNow().jdn;
+    const { container } = at("#/");
+    const prev = container.querySelector("a.tl-div-prev");
+    const next = container.querySelector("a.tl-div-next");
+    expect(prev.getAttribute("href")).toBe(`#/day/${jdn - 1}`);
+    expect(next.getAttribute("href")).toBe(`#/day/${jdn + 1}`);
+    // and they are not inside the scrolling area
+    expect(prev.closest(".tl-scroll")).toBeNull();
+    expect(next.closest(".tl-scroll")).toBeNull();
+  });
+});
+
+/**
+ * Blueprints is where the plan is shaped. The day page is where doing it is
+ * recorded. Those are different jobs and the task rows used to lead to the
+ * wrong one.
+ */
+describe("a blueprint row edits the task, it does not log it", () => {
+  beforeEach(() => { cleanup(); localStorage.clear(); });
+
+  const openFirstRow = () => {
+    const r = at("#/blueprints");
+    const row = r.container.querySelector(".trow");
+    fireEvent.click(row);
+    return r;
+  };
+
+  it("does not navigate to the day's logging page", () => {
+    const { container } = at("#/blueprints");
+    const rows = [...container.querySelectorAll(".trow")];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.tagName).toBe("BUTTON");
+      expect(row.getAttribute("href")).toBeNull();
+    }
+  });
+
+  it("opens editing, with the shape of the plan in it", () => {
+    openFirstRow();
+    expect(document.querySelector(".pop-title").textContent).toMatch(/^Edit /);
+    const ids = [...document.querySelectorAll(".pop .input")].map((i) => i.id);
+    // name, description, start, duration, place, frequency
+    expect(ids).toEqual(expect.arrayContaining(["et", "ed", "es", "em", "ep", "ef"]));
+  });
+
+  it("carries no logging controls", () => {
+    openFirstRow();
+    const text = document.querySelector(".pop").textContent;
+    // nothing here records *doing* the task — that lives on the day page
+    expect(text).not.toMatch(/Mark done|Mark as done|Log it|Completed|Not done/i);
+    expect(document.querySelector(".pop .tally")).toBeNull();
+  });
+
+  it("saves a change to the plan", () => {
+    openFirstRow();
+    const name = document.querySelector("#et");
+    fireEvent.change(name, { target: { value: "Renamed task" } });
+    fireEvent.click([...document.querySelectorAll(".btn")].find((b) => b.textContent === "Save"));
+    expect(document.querySelector(".pop")).toBeNull();
+    expect(document.body.textContent).toContain("Renamed task");
+  });
+
+  it("offers deletion, behind a confirmation", () => {
+    openFirstRow();
+    const del = document.querySelector(".btn.danger");
+    expect(del).not.toBeNull();
+    fireEvent.click(del);
+    // asks first
+    expect(document.body.textContent).toMatch(/Turn off|Delete/);
+    expect(document.querySelectorAll(".pop").length).toBeGreaterThan(1);
+  });
+
+  it("blocks a single date without changing the pattern", () => {
+    const jdn = readNow().jdn;
+    const { container } = at("#/blueprints");
+    // a repeating task
+    const rows = [...container.querySelectorAll(".trow")];
+    const row = rows.find((r) => /Every day/i.test(r.textContent)) ?? rows[0];
+    const pattern = row.querySelector(".tc-pat").textContent;
+    fireEvent.click(row);
+
+    fireEvent.click([...document.querySelectorAll(".btn")].find((b) => /Block a date/.test(b.textContent)));
+    const today = [...document.querySelectorAll(".mini-day")].find((d) => d.className.includes("today"));
+    fireEvent.click(today);
+
+    // recorded as an exception, visible and reversible
+    const chips = [...document.querySelectorAll(".block-chip")];
+    expect(chips.length).toBe(1);
+    // the rule itself is untouched
+    expect(document.querySelector(".pop-sub").textContent).toBe(pattern);
+  });
+
+  it("keeps a blocked day off that day only", () => {
+    const jdn = readNow().jdn;
+    const iso = dayFromJdn(jdn).iso ?? null;
+    const { container } = at("#/blueprints");
+    const rows = [...container.querySelectorAll(".trow")];
+    const row = rows.find((r) => /Every day/i.test(r.textContent)) ?? rows[0];
+    const title = row.querySelector(".tc-name").textContent.replace("default", "").trim();
+    fireEvent.click(row);
+    fireEvent.click([...document.querySelectorAll(".btn")].find((b) => /Block a date/.test(b.textContent)));
+    fireEvent.click([...document.querySelectorAll(".mini-day")].find((d) => d.className.includes("today")));
+    fireEvent.click([...document.querySelectorAll(".btn")].find((b) => b.textContent === "Save"));
+
+    cleanup();
+    // gone from today
+    const todayPage = at("#/");
+    expect(todayPage.container.querySelector(".day-split")?.textContent ?? "").not.toContain(title);
+    cleanup();
+    // still there tomorrow
+    const tomorrow = at(`#/day/${jdn + 1}`);
+    expect(tomorrow.container.textContent).toContain(title);
   });
 });

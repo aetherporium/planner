@@ -1,9 +1,14 @@
 /**
  * The day as continuous hours, anchored at dawn.
  *
- * ONE TIMELINE, THREE DAYS. Yesterday, today and tomorrow live in the same
- * scroller, separated by a divider rather than by a page load. Moving between
- * days scrolls; it does not replace the screen.
+ * ONE DAY, IN THE PAGE. The timeline no longer owns a scrollbar of its own:
+ * it lays out at its full height inside the page, and the page scrolls. That
+ * is what lets the header scroll away with it instead of sitting in a frame
+ * above a second, nested scroller.
+ *
+ * It also ends where the day ends. You cannot drift into tomorrow by scrolling
+ * — crossing a day is deliberate, done with the arrows at either end, the date
+ * box, or the calendar. Scrolling is for moving within a day.
  *
  * Height is duration. A moment (no duration) is a hairline, not a block.
  *
@@ -16,7 +21,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Icon from "./Icon.jsx";
 import Mark from "./Mark.jsx";
-import { t12, rulerHour, fromDawn } from "./format.js";
+import { t12, rulerHour, fromDawn, toClock } from "./format.js";
 import { fmtDur, GAP_KINDS, STATUS, isMoment } from "../log.mjs";
 import { DOW, GC_MONTHS, dayFromJdn } from "../calendar.mjs";
 
@@ -126,16 +131,24 @@ function DaySection({ jdn, timeline, statusFor, nowFromDawn, isToday, PX, step, 
                 type="button"
                 className={`sip${done ? " done" : ""}${due ? " due" : ""}`}
                 style={{ top }}
-                title={`${t.title} — ${t.slotAmount} ${t.unit}`}
+                title={`${t.title} — ${t.slotAmount} ${t.unit} at ${t12(toClock(item.startMin))}`}
+                aria-label={`${t.title} ${t.slotAmount} ${t.unit} at ${t12(toClock(item.startMin))}`}
                 onClick={(e) => {
                   e.preventDefault();
                   onSip?.(t, done ? -(t.slotAmount ?? 250) : (t.slotAmount ?? 250));
                 }}
               >
-                <span className="sip-dot">
-                  <Icon name={done ? "check" : "water"} size={10} />
+                {/*
+                  * A line across the ruler, not a block. A sip takes no time
+                  * and must not look like it occupies any, nor cover the task
+                  * it happens during — so it draws through them at its own
+                  * minute and keeps its label out at the edge.
+                  */}
+                <span className="sip-rule" />
+                <span className="sip-tag">
+                  <Icon name={done ? "check" : "water"} size={9} />
+                  {t.slotAmount}
                 </span>
-                <span className="sip-n">{t.slotAmount} {t.unit}</span>
               </button>
             );
           }
@@ -243,8 +256,8 @@ function Divider({ jdn, dir }) {
 }
 
 export default function Timeline({
-  jdn, nowMin, nowJdn, timelineFor, statusFor, height = 520,
-  zoom = 1, onZoom, onVisibleDay, onSip,
+  jdn, nowMin, nowJdn, timelineFor, statusFor,
+  zoom = 1, onZoom, onSip,
 }) {
   const scrollRef = useRef(null);
   const nowFromDawn = fromDawn(nowMin);
@@ -256,10 +269,6 @@ export default function Timeline({
   const step = gridFor(PX);
   const DAY_H = 1440 * PX;
 
-  const days = [jdn - 1, jdn, jdn + 1];
-  const offsetOf = (i) => i * (DAY_H + DIVIDER);
-  const middleTop = offsetOf(1);
-
   const today = timelineFor(jdn);
 
   /**
@@ -267,7 +276,9 @@ export default function Timeline({
    *
    * Opening today should put you at the task in progress — or, if nothing is,
    * the last one that finished, because that is the thing you were doing.
-   * Falling back to the raw clock position would often show empty ruler.
+   * The page is the scroller now, so this scrolls the window to where the
+   * timeline's own content sits, leaving the header above it to be scrolled
+   * back up to.
    */
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -280,8 +291,9 @@ export default function Timeline({
       const previous = [...blocks].reverse().find((i) => i.endMin <= nowFromDawn);
       anchor = (current ?? previous)?.startMin ?? nowFromDawn;
     }
-    el.scrollTop = middleTop + Math.max(0, anchor * PX - height * 0.3);
-  }, [jdn, zoom]); // eslint-disable-line react-hooks/exhaustive-deps
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top: Math.max(0, top + anchor * PX - window.innerHeight * 0.3) });
+  }, [jdn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Zoom by wheel and by keyboard, the way every other canvas works.
@@ -303,13 +315,22 @@ export default function Timeline({
       const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, current * factor));
       if (next === current) return;
 
+      /*
+       * The page is the scroller, so the fixed point is measured against the
+       * viewport: `into` is how far into the timeline the anchored pixel sits,
+       * in minutes. After the scale changes we put that same minute back under
+       * the same pixel.
+       */
       const box = el.getBoundingClientRect();
-      const anchor = clientY == null ? el.clientHeight / 2 : clientY - box.top;
-      const before = (el.scrollTop + anchor) / current;
+      const anchorY = clientY == null ? window.innerHeight / 2 : clientY;
+      const into = (anchorY - box.top) / current;
 
       onZoom(next);
       requestAnimationFrame(() => {
-        if (scrollRef.current) scrollRef.current.scrollTop = before * next - anchor;
+        const now = scrollRef.current;
+        if (!now) return;
+        const top = now.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({ top: Math.max(0, top + into * next - anchorY) });
       });
     },
     [onZoom],
@@ -342,16 +363,11 @@ export default function Timeline({
   }, [zoomAround, onZoom]);
 
   /**
-   * Scrolling between days is FREE. Yesterday, today and tomorrow are one
-   * strip of time and you can move through all of it — an earlier version
-   * made you click a button to cross a boundary, which turned a scroll into
-   * a decision for no reason.
-   *
-   * What the scroll position changes is the LABEL: whichever day fills most
-   * of the viewport is the one the header names. The URL only changes when
-   * you actually settle on another day, so back still works.
+   * Only draw the slice of ruler that is on screen. With the page as the
+   * scroller this is measured against the viewport rather than against an
+   * inner box, but the reason is the same: at fine zoom a whole day is
+   * thousands of lines and drawing them all makes scrolling stutter.
    */
-  const [visible, setVisible] = useState(jdn);
   const [view, setView] = useState({ from: 0, to: 1440 });
 
   useEffect(() => {
@@ -360,15 +376,12 @@ export default function Timeline({
     let frame = 0;
 
     const measure = () => {
-      const mid = el.scrollTop + el.clientHeight / 2;
-      const i = Math.min(days.length - 1, Math.max(0, Math.floor(mid / (DAY_H + DIVIDER))));
-      setVisible(days[i]);
-
-      // Which slice of the day is on screen, so the ruler only draws that.
-      const top = el.scrollTop - offsetOf(i);
+      const box = el.getBoundingClientRect();
+      // how far into the timeline the top of the viewport has reached
+      const top = -box.top;
       setView({
         from: Math.max(0, top / PX - 120),
-        to: Math.min(1440, (top + el.clientHeight) / PX + 120),
+        to: Math.min(1440, (top + window.innerHeight) / PX + 120),
       });
     };
 
@@ -378,45 +391,40 @@ export default function Timeline({
     };
 
     measure();
-    el.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
     return () => {
-      el.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
       cancelAnimationFrame(frame);
     };
-  }, [jdn, DAY_H, PX, days.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Tell the page which day is being looked at, so its header can follow.
-  useEffect(() => { onVisibleDay?.(visible); }, [visible, onVisibleDay]);
+  }, [jdn, PX]);
 
   return (
     <div className="tl-wrap">
-      <div className="tl-scroll" style={{ height }} ref={scrollRef} tabIndex={-1}>
-        <div className="tl-track" style={{ height: days.length * DAY_H + (days.length - 1) * DIVIDER }}>
-          {days.map((d, i) => (
-            <div key={d} className={`tl-day${d === jdn ? " current" : " neighbour"}`}
-              style={{ top: offsetOf(i), height: DAY_H }}>
-              <DaySection
-                jdn={d}
-                timeline={d === jdn ? today : timelineFor(d)}
-                statusFor={statusFor}
-                nowFromDawn={watermark}
-                isToday={d === nowJdn}
-                PX={PX}
-                step={step}
-                view={view}
-                onSip={onSip}
-              />
-            </div>
-          ))}
-          {days.slice(1).map((d, i) => (
-            <div key={`div${d}`} className="tl-div-slot" style={{ top: offsetOf(i) + DAY_H, height: DIVIDER }}>
-              <Divider jdn={d} dir="next" />
-            </div>
-          ))}
+      {/* The previous day is reached deliberately, not by drifting upward. */}
+      <Divider jdn={jdn - 1} dir="prev" />
+
+      <div className="tl-scroll" ref={scrollRef} tabIndex={-1}>
+        <div className="tl-track" style={{ height: DAY_H }}>
+          <div className="tl-day current" style={{ top: 0, height: DAY_H }}>
+            <DaySection
+              jdn={jdn}
+              timeline={today}
+              statusFor={statusFor}
+              nowFromDawn={watermark}
+              isToday={jdn === nowJdn}
+              PX={PX}
+              step={step}
+              view={view}
+              onSip={onSip}
+            />
+          </div>
         </div>
       </div>
-      <div className="tl-fade top" />
-      <div className="tl-fade bot" />
+
+      {/* …and the day ends here. */}
+      <Divider jdn={jdn + 1} dir="next" />
 
       {onZoom ? (
         <div className="tl-zoom">

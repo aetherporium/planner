@@ -7,17 +7,17 @@
  * afternoon are told apart by a mark, never by the letters am/pm.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "./Icon.jsx";
 import Timeline from "./Timeline.jsx";
 import Mark, { Time } from "./Mark.jsx";
-import { t12, parseEth, isNight, fromDawn, toClock } from "./format.js";
+import { t12, parts, parseEth, isNight, fromDawn, toClock } from "./format.js";
 import Nav from "./Nav.jsx";
 import DayHeader from "./DayHeader.jsx";
 import NowStrip from "./NowStrip.jsx";
 import MiniCalendar from "./MiniCalendar.jsx";
 import Tally from "./Tally.jsx";
-import { isSpreadTask, conflictsFor, nextFreeSlot } from "../log.mjs";
+import { isSpreadTask, conflictsFor, nextFreeSlot, nowSlice } from "../log.mjs";
 import { KIND } from "../kinds.mjs";
 import Popup from "./Popup.jsx";
 import Blueprints from "./Blueprints.jsx";
@@ -88,32 +88,106 @@ function Top({ back, theme, onToggle }) {
 
 /* ── The day — the core page ──────────────────────────────────────────── */
 
+/**
+ * The day is ONE PAGE, and the page is the scroller.
+ *
+ * The clock, the date and the strip of nearby tasks are the top of that page,
+ * not a fixed frame above it. Scroll down and they leave, the same as any
+ * other heading — what used to happen was that the header stayed put and a
+ * second scrollbar moved the timeline inside it, which is two scrollers on
+ * one screen and reads as a broken page.
+ *
+ * What replaces the header on the way down is a thin bar: the digital time,
+ * which is the one thing you always need, and the task you are in with the
+ * next couple after it. It is a summary, not the header again — it appears
+ * only once the real header has gone.
+ */
+function DayRail({ day, now, isToday, tasks, statusFor, futureCount, onOpenCalendar }) {
+  const p = parts(now.minutes);
+  /*
+   * nowSlice works in dawn-relative minutes, so the tasks go in shifted and
+   * their start times come back out shifted for display.
+   */
+  const shifted = tasks.map((t) => ({ ...t, startMin: fromDawn(t.startMin) }));
+  const slice = nowSlice(shifted, fromDawn(now.minutes), { pastCount: 0, futureCount });
+  const coming = [slice.current, ...slice.upcoming].filter(Boolean).slice(0, 1 + futureCount);
+
+  return (
+    <div className="rail">
+      <button type="button" className="rail-day" onClick={onOpenCalendar}>
+        {DOW[day.dow].slice(0, 3)} {day.gc.d}
+      </button>
+
+      {isToday ? (
+        <span className="rail-clock">
+          {p.h}:{String(p.m).padStart(2, "0")}
+          <Mark night={p.night} size={5} />
+        </span>
+      ) : null}
+
+      <span className="rail-tasks">
+        {coming.length === 0 ? (
+          <span className="rail-none">Nothing left today</span>
+        ) : (
+          coming.map((t, i) => (
+            <a
+              key={t.id}
+              className={`rail-task${i === 0 && slice.current ? " on" : ""}`}
+              href={`#/task/${t.id}/${day.jdn}`}
+            >
+              <span className="rail-t">{t12(toClock(t.startMin))}</span>
+              {t.title}
+            </a>
+          ))
+        )}
+      </span>
+    </div>
+  );
+}
+
 function DayPage({ jdn, planner, now, theme, onToggle }) {
   const day = dayFromJdn(jdn);
   const isToday = jdn === now.jdn;
   const tasks = planner.tasksFor(jdn);
+  const [calOpen, setCalOpen] = useState(false);
 
   /**
-   * The header names whichever day the timeline is actually showing, so
-   * scrolling into tomorrow renames the heading even before the URL changes.
+   * The rail appears when the header has actually scrolled off, measured
+   * rather than guessed at a fixed offset — the header's height changes with
+   * the viewport.
    */
-  const [shownJdn, setShownJdn] = useState(jdn);
-  useEffect(() => setShownJdn(jdn), [jdn]);
-  const shown = dayFromJdn(shownJdn);
-  const [calOpen, setCalOpen] = useState(false);
+  const headRef = useRef(null);
+  const [railed, setRailed] = useState(false);
+  useEffect(() => {
+    const el = headRef.current;
+    if (!el) return undefined;
+    let frame = 0;
+    const measure = () => setRailed(el.getBoundingClientRect().bottom < 8);
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    };
+    measure();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, [jdn]);
 
   return (
     <div className="page day-page">
       <Top back={isToday ? null : { href: "#/", label: "Today" }} theme={theme} onToggle={onToggle} />
 
-      {/* The clock keeps its own corner; the header sits beside it with the
-          strip of recent and coming tasks. */}
-      <div className="day-top">
+      {/* Everything here scrolls away. */}
+      <div className="day-top" ref={headRef}>
         <DayHeader
-          day={shown}
-          isToday={shownJdn === now.jdn}
+          day={day}
+          isToday={isToday}
           now={now}
-          jdn={shownJdn}
+          jdn={jdn}
           onOpenCalendar={() => setCalOpen(true)}
         />
         {isToday ? (
@@ -128,11 +202,24 @@ function DayPage({ jdn, planner, now, theme, onToggle }) {
         ) : null}
       </div>
 
+      {/* …and this takes its place, minimally. */}
+      <div className={`rail-slot${railed ? " on" : ""}`} aria-hidden={!railed}>
+        <DayRail
+          day={day}
+          now={now}
+          isToday={isToday}
+          tasks={tasks}
+          statusFor={planner.statusFor}
+          futureCount={2}
+          onOpenCalendar={() => setCalOpen(true)}
+        />
+      </div>
+
       {calOpen ? (
         <Popup size="wide" title="Pick a day" onClose={() => setCalOpen(false)}>
           <MiniCalendar
             now={now}
-            focus={shown}
+            focus={day}
             onPick={(j) => { setCalOpen(false); window.location.hash = `#/day/${j}`; }}
           />
         </Popup>
@@ -160,7 +247,6 @@ function DayPage({ jdn, planner, now, theme, onToggle }) {
             statusFor={planner.statusFor}
             zoom={planner.settings.zoom}
             onZoom={(z) => planner.setSetting("zoom", z)}
-            onVisibleDay={setShownJdn}
             onSip={(t, d) =>
               planner.setAmount(t.id, jdn, (planner.statusFor(t.id, jdn)?.amount ?? 0) + d, now)
             }

@@ -16,6 +16,7 @@ import { fromDawn } from "./format.js";
 import { patternsIn, categorise, colorOf, iconOf, patternName } from "../patterns.mjs";
 import { fmtDur, isMoment } from "../log.mjs";
 import CategoryForm from "./CategoryForm.jsx";
+import TaskEdit from "./TaskEdit.jsx";
 
 /** A pattern is a rhythm — so show the rhythm, not just a list. */
 function PatternBody({ pattern, slot, catOf }) {
@@ -128,6 +129,8 @@ export default function Blueprints({ planner, now, Top, theme, onToggle }) {
   const [open, setOpen] = useState(null);   // {kind:'pattern'|'category', id}
   const [making, setMaking] = useState(false);
   const [editing, setEditing] = useState(null);
+  // Editing a TASK is a different thing from editing a category.
+  const [editTask, setEditTask] = useState(null);
   const [sort, setSort] = useState("time");
 
   const pattern = open?.kind === "pattern" ? patterns.find((p) => p.id === open.id) : null;
@@ -236,7 +239,13 @@ export default function Blueprints({ planner, now, Top, theme, onToggle }) {
           {tasks.map((t) => {
             const c = catOf(t);
             return (
-              <a key={t.id} className={`trow${t.enabled === false ? " off" : ""}`} href={`#/task/${t.id}/${now.jdn}`}>
+              <button
+                key={t.id}
+                type="button"
+                className={`trow${t.enabled === false ? " off" : ""}`}
+                onClick={() => setEditTask(t.id)}
+                title={`Edit ${t.title}`}
+              >
                 <span className="tc-time"><Time min={t.startMin} size={6} /></span>
                 <span className="tc-name">
                   {t.title}
@@ -255,8 +264,8 @@ export default function Blueprints({ planner, now, Top, theme, onToggle }) {
                   )}
                 </span>
                 <span className="tc-place">{t.place ?? <span className="dim">—</span>}</span>
-                <Icon name="chevRight" size={14} className="dim" />
-              </a>
+                <Icon name="edit" size={13} className="dim" />
+              </button>
             );
           })}
         </div>
@@ -321,6 +330,23 @@ export default function Blueprints({ planner, now, Top, theme, onToggle }) {
             }}
           />
         </Popup>
+      ) : null}
+
+      {/* A task row opens its own editing, not the day page: Blueprints is
+          where the plan is shaped, and logging belongs to the day. */}
+      {editTask && tasks.some((t) => t.id === editTask) ? (
+        <TaskEdit
+          /*
+           * Look the task up again on every render rather than holding the
+           * object captured when the row was clicked: blocking a date changes
+           * the task in the store, and a snapshot would keep showing the
+           * version from before the change.
+           */
+          task={tasks.find((t) => t.id === editTask) ?? null}
+          planner={planner}
+          now={now}
+          onClose={() => setEditTask(null)}
+        />
       ) : null}
 
       {editing ? (
