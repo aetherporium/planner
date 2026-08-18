@@ -1,11 +1,27 @@
 # Planner
 
+**Try it: https://aetherporium.github.io/planner/**
+
 A day planner built around the **Ethiopian calendar and dawn-anchored time**.
 
 The day runs dawn to dawn. 06:00 Gregorian is 12:00 here, and the clock is
 12-hour with a visual day/night mark rather than the letters "AM" and "PM".
 Dates are Ethiopian — thirteen months, Nehase and Pagumē included — with the
 Gregorian date shown alongside rather than instead.
+
+## Feedback
+
+It is being tried out, so it will have rough edges. If something is wrong,
+confusing, or missing, [open an issue](https://github.com/aetherporium/planner/issues/new)
+— or use **Settings → Feedback** inside the app, which fills in the build and
+browser details automatically.
+
+Saying what you *expected* to happen is more useful than a diagnosis.
+
+Your plans never leave your browser: there is no account, no server, and
+nothing is uploaded. Everything is stored in `localStorage` on your own device,
+which also means clearing site data clears your plans, and two devices do not
+share anything.
 
 ## Running it
 

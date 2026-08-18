@@ -28,10 +28,42 @@ const Toggle = ({ on, onChange, label, hint }) => (
   </label>
 );
 
+const REPO = "https://github.com/aetherporium/planner";
+
 export default function Settings({ planner, Top, theme, onToggle }) {
   const s = planner.settings;
   const set = planner.setSetting;
   const hasData = planner.userTasks.length > 0 || planner.categories.length > 0;
+
+  /*
+   * Prefill the parts of a bug report nobody thinks to include. Counts, not
+   * contents: how many tasks exist is diagnostic, what they say is private.
+   */
+  const body = [
+    "### What happened",
+    "",
+    "",
+    "### What you expected instead",
+    "",
+    "",
+    "### Where",
+    "",
+    `Page: \`${window.location.hash || "#/"}\``,
+    "",
+    "<details><summary>Build details</summary>",
+    "",
+    `- Build: \`${__BUILD__}\``,
+    `- Screen: ${window.innerWidth}×${window.innerHeight}`,
+    `- Browser: \`${navigator.userAgent}\``,
+    `- Theme: ${theme}`,
+    `- Tasks: ${planner.allTasks.length} (${planner.userTasks.length} your own)`,
+    `- Categories: ${planner.categories.length}`,
+    "",
+    "</details>",
+  ].join("\n");
+
+  const reportUrl =
+    `${REPO}/issues/new?title=${encodeURIComponent("")}&body=${encodeURIComponent(body)}`;
 
   return (
     <div className="page">
@@ -146,6 +178,43 @@ export default function Settings({ planner, Top, theme, onToggle }) {
             Clear everything
           </button>
         </div>
+      </section>
+
+      {/* ── Feedback ───────────────────────────────────────────────────
+          The app is being tried by people who are not the person building
+          it, so it has to say where to put what they find. The link carries
+          the state that makes a report reproducible — which build, which
+          browser, how much is scheduled — because nobody remembers to
+          include it and a report without it is usually a dead end. */}
+      <section className="prefs">
+        <h2 className="section">Feedback</h2>
+
+        <p className="hint" style={{ margin: "0 0 var(--sp-3)", maxWidth: "56ch" }}>
+          Something wrong, confusing, or missing? Say so — half-formed is fine.
+          Knowing what you expected to happen is more useful than a diagnosis.
+        </p>
+
+        <div className="rows">
+          <a className="row" href={reportUrl} target="_blank" rel="noreferrer">
+            <span className="row-main">
+              <span className="row-t">Report something</span>
+              <span className="row-s">Opens a new issue, with your build details filled in</span>
+            </span>
+            <Icon name="chevRight" size={14} className="dim" />
+          </a>
+          <a className="row" href={`${REPO}/issues`} target="_blank" rel="noreferrer">
+            <span className="row-main">
+              <span className="row-t">What others have said</span>
+              <span className="row-s">Everything already reported</span>
+            </span>
+            <Icon name="chevRight" size={14} className="dim" />
+          </a>
+        </div>
+
+        <p className="hint" style={{ margin: "var(--sp-3) 0 0", maxWidth: "56ch" }}>
+          Your plans stay in this browser. Nothing is uploaded, and a report only
+          contains what you type into it plus the build details shown in the link.
+        </p>
       </section>
 
       <section className="prefs">

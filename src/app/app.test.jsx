@@ -2152,3 +2152,49 @@ describe("a blueprint row edits the task, it does not log it", () => {
     expect(tomorrow.container.textContent).toContain(title);
   });
 });
+
+/**
+ * The app is being handed to people who are not building it. It has to say
+ * where feedback goes, and carry enough state in the report that a stranger's
+ * bug is reproducible.
+ */
+describe("feedback has somewhere to go", () => {
+  beforeEach(() => { cleanup(); localStorage.clear(); });
+
+  it("offers a way to report from inside the app", () => {
+    const { container } = at("#/settings");
+    const report = [...container.querySelectorAll("a.row")]
+      .find((a) => /Report something/.test(a.textContent));
+    expect(report).not.toBeNull();
+    expect(report.getAttribute("href")).toMatch(/github\.com\/.+\/issues\/new/);
+    // opens away from the app rather than losing what you were doing
+    expect(report.getAttribute("target")).toBe("_blank");
+    expect(report.getAttribute("rel")).toMatch(/noreferrer/);
+  });
+
+  it("prefills the details nobody remembers to include", () => {
+    const { container } = at("#/settings");
+    const href = [...container.querySelectorAll("a.row")]
+      .find((a) => /Report something/.test(a.textContent)).getAttribute("href");
+    const body = decodeURIComponent(href);
+    expect(body).toContain("What happened");
+    expect(body).toContain("What you expected instead");
+    expect(body).toContain("Build:");
+    expect(body).toContain("Browser:");
+  });
+
+  it("reports counts, never the content of anyone's plans", () => {
+    const { container } = at("#/settings");
+    const href = [...container.querySelectorAll("a.row")]
+      .find((a) => /Report something/.test(a.textContent)).getAttribute("href");
+    const body = decodeURIComponent(href);
+    // the built-in task titles must not be carried into a public issue
+    for (const t of DEFAULT_TASKS) expect(body).not.toContain(t.title);
+    expect(body).toMatch(/Tasks: \d+/);
+  });
+
+  it("says plainly that nothing leaves the browser", () => {
+    const { container } = at("#/settings");
+    expect(container.textContent).toMatch(/stay in this browser|Nothing is uploaded/i);
+  });
+});
